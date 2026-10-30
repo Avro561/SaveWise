@@ -39,6 +39,10 @@
         <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle Theme">
           <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
         </button>
+        <button id="smsSyncBtn" class="icon-btn" title="SMS Auto-Track" aria-label="SMS Sync" style="position:relative;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span id="smsBadgeCount" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:10px;font-weight:bold;border-radius:10px;padding:1px 5px;line-height:14px;border:2px solid #0d1117;">0</span>
+        </button>
         <button id="settingsBtn" class="icon-btn" title="Settings & Backup" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -530,6 +534,15 @@
             </label>
           </div>
 
+          <div class="setting-item-block">
+            <strong>Automatic SMS Sync</strong>
+            <p class="subtext">Auto-detect bank and wallet SMS on your device.</p>
+            <div class="btn-group mt-2">
+              <button class="pill-btn secondary-btn" id="checkSmsPermissionSettingBtn">📱 SMS Permissions</button>
+              <button class="pill-btn secondary-btn" id="openBatteryGuideBtn">🔋 Battery Settings</button>
+            </div>
+          </div>
+
           <hr class="divider">
 
           <div class="setting-item-block">
@@ -609,6 +622,67 @@
               <p>3. Your debug/release APK will be generated in <code>app/build/outputs/apk/</code>!</p>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SMS PERMISSION EXPLANATION (Step 3) -->
+    <div id="smsPermissionModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3>⚡ Automatic SMS Tracking</h3>
+          <button class="close-btn" id="closeSmsPermissionBtn">&times;</button>
+        </div>
+        <div style="padding:16px 20px 24px;">
+          <div style="font-size:48px;text-align:center;margin:8px 0 16px;">📱</div>
+          <h4 style="margin:0 0 8px;font-size:16px;text-align:center;color:#10b981;">Private & Zero-Cloud Sync</h4>
+          <p style="color:#8b949e;font-size:13px;line-height:1.5;margin-bottom:16px;text-align:center;">
+            SaveWise reads <strong>only bank and mobile wallet SMS</strong> (bKash, Nagad, Rocket, CellFin, City Bank, EBL, etc.) directly on your device to automatically calculate your debits, credits, and balance.
+          </p>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px;font-size:12px;color:#c9d1d9;margin-bottom:20px;line-height:1.4;">
+            🔒 <strong>100% Offline:</strong> OTPs and personal texts are strictly ignored. Your financial SMS never leave this device.
+          </div>
+          <button class="pill-btn primary-btn" id="grantSmsPermissionBtn" style="width:100%;padding:14px 0;font-size:15px;font-weight:bold;">Enable Auto-Track</button>
+          <button class="pill-btn secondary-btn mt-2" id="skipSmsPermissionBtn" style="width:100%;">Not Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: PENDING REVIEW (Step 9) -->
+    <div id="pendingReviewModal" class="modal-overlay">
+      <div class="modal-sheet" style="max-height:85vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+          <h3>📥 Pending SMS Review (<span id="pendingCountDisplay">0</span>)</h3>
+          <button class="close-btn" id="closePendingReviewBtn">&times;</button>
+        </div>
+        <div style="padding:10px 20px 0;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:#8b949e;">Review auto-detected transactions</span>
+          <button id="scanMissedSmsBtn" class="pill-btn secondary-btn" style="padding:4px 10px;font-size:12px;">🔄 Scan Missed</button>
+        </div>
+        <div id="pendingReviewList" style="flex:1;overflow-y:auto;padding:12px 20px 20px;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: BATTERY OPTIMIZATION GUIDE (Step 12) -->
+    <div id="batteryGuideModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3>🔋 Background Auto-Track Guide</h3>
+          <button class="close-btn" id="closeBatteryGuideBtn">&times;</button>
+        </div>
+        <div style="padding:16px 20px 24px;">
+          <p style="color:#8b949e;font-size:13px;line-height:1.5;margin-bottom:14px;">
+            Devices from <strong>Xiaomi (MIUI), Oppo, Vivo, OnePlus, and Samsung</strong> aggressively stop background apps to save battery. To ensure bank SMS are detected instantly:
+          </p>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#c9d1d9;line-height:1.5;">
+            <strong>Recommended Settings:</strong><br>
+            1. <strong>Autostart:</strong> Enable Autostart for <em>SaveWise</em>.<br>
+            2. <strong>Battery Saver:</strong> Set to <em>"No restrictions"</em>.<br>
+            3. <strong>Lock App in Recents:</strong> Swipe down on SaveWise in Recent Apps and lock it.
+          </div>
+          <button class="pill-btn primary-btn" id="openBatterySettingsBtn" style="width:100%;padding:12px 0;">⚙️ Open Battery Settings</button>
         </div>
       </div>
     </div>

@@ -1127,4 +1127,253 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Render initial clean dashboard & state (no auto-seeding sample data)
   renderAll();
+
+  // Initialize SMS Auto-Track Controller
+  SmsSyncController.init();
 });
+
+// --- SMS Auto-Track Controller (Steps 3, 7, 8, 9, 10, 12) ---
+const SmsSyncController = {
+  init() {
+    this.badge = document.getElementById('smsBadgeCount');
+    this.smsBtn = document.getElementById('smsSyncBtn');
+    this.permissionModal = document.getElementById('smsPermissionModal');
+    this.pendingModal = document.getElementById('pendingReviewModal');
+    this.batteryModal = document.getElementById('batteryGuideModal');
+    this.pendingList = document.getElementById('pendingReviewList');
+    this.pendingCountDisplay = document.getElementById('pendingCountDisplay');
+
+    this.bindEvents();
+    this.checkFirstLaunchPermission();
+    this.syncPending();
+  },
+
+  bindEvents() {
+    if (this.smsBtn) {
+      this.smsBtn.addEventListener('click', () => {
+        if (window.AndroidSms && !window.AndroidSms.checkSmsPermissions()) {
+          this.permissionModal.classList.add('active');
+        } else {
+          this.openPendingReview();
+        }
+      });
+    }
+
+    const grantBtn = document.getElementById('grantSmsPermissionBtn');
+    if (grantBtn) {
+      grantBtn.addEventListener('click', () => {
+        if (window.AndroidSms) {
+          window.AndroidSms.requestSmsPermissions();
+        } else {
+          showToast('SMS sync is available in the Android APK build.');
+        }
+        this.permissionModal.classList.remove('active');
+      });
+    }
+
+    const skipBtn = document.getElementById('skipSmsPermissionBtn');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', () => {
+        this.permissionModal.classList.remove('active');
+        localStorage.setItem('savewise_sms_prompt_dismissed', 'true');
+      });
+    }
+
+    const closePermBtn = document.getElementById('closeSmsPermissionBtn');
+    if (closePermBtn) closePermBtn.addEventListener('click', () => this.permissionModal.classList.remove('active'));
+
+    const closePendingBtn = document.getElementById('closePendingReviewBtn');
+    if (closePendingBtn) closePendingBtn.addEventListener('click', () => this.pendingModal.classList.remove('active'));
+
+    const scanMissedBtn = document.getElementById('scanMissedSmsBtn');
+    if (scanMissedBtn) {
+      scanMissedBtn.addEventListener('click', () => {
+        if (window.AndroidSms) {
+          const count = window.AndroidSms.scanMissedSms();
+          showToast(`Scanned SMS inbox: ${count} new found!`);
+          this.syncPending();
+        } else {
+          showToast('Inbox scanner active in Android APK.');
+        }
+      });
+    }
+
+    const checkSmsSettingBtn = document.getElementById('checkSmsPermissionSettingBtn');
+    if (checkSmsSettingBtn) {
+      checkSmsSettingBtn.addEventListener('click', () => {
+        this.permissionModal.classList.add('active');
+      });
+    }
+
+    const openBatteryGuideBtn = document.getElementById('openBatteryGuideBtn');
+    if (openBatteryGuideBtn) {
+      openBatteryGuideBtn.addEventListener('click', () => {
+        this.batteryModal.classList.add('active');
+      });
+    }
+
+    const closeBatteryBtn = document.getElementById('closeBatteryGuideBtn');
+    if (closeBatteryBtn) closeBatteryBtn.addEventListener('click', () => this.batteryModal.classList.remove('active'));
+
+    const openBatterySettingsBtn = document.getElementById('openBatterySettingsBtn');
+    if (openBatterySettingsBtn) {
+      openBatterySettingsBtn.addEventListener('click', () => {
+        if (window.AndroidSms) {
+          window.AndroidSms.openBatterySettings();
+        } else {
+          showToast('Open device Settings > Apps > SaveWise > Battery');
+        }
+      });
+    }
+
+    // Callbacks from native Android
+    window.onNewSmsQueued = () => {
+      this.syncPending();
+      showToast('📥 New SMS transaction queued for review!');
+    };
+
+    window.onSmsPermissionResult = (granted, count) => {
+      if (granted) {
+        showToast(`SMS Auto-Track enabled! Found ${count} transactions.`);
+        this.syncPending();
+      } else {
+        showToast('SMS Permission was denied.');
+      }
+    };
+  },
+
+  checkFirstLaunchPermission() {
+    const dismissed = localStorage.getItem('savewise_sms_prompt_dismissed');
+    if (!dismissed && window.AndroidSms && !window.AndroidSms.checkSmsPermissions()) {
+      setTimeout(() => {
+        this.permissionModal.classList.add('active');
+      }, 1200);
+    }
+  },
+
+  getPendingList() {
+    if (window.AndroidSms) {
+      try {
+        const raw = window.AndroidSms.getPendingTransactions();
+        return JSON.parse(raw || '[]');
+      } catch (e) {
+        console.error('Error reading pending queue:', e);
+        return [];
+      }
+    }
+    // Web demo fallback queue
+    return JSON.parse(localStorage.getItem('savewise_demo_sms_queue') || '[]');
+  },
+
+  syncPending() {
+    const list = this.getPendingList();
+    if (this.badge) {
+      if (list.length > 0) {
+        this.badge.style.display = 'block';
+        this.badge.textContent = list.length;
+      } else {
+        this.badge.style.display = 'none';
+      }
+    }
+    if (this.pendingCountDisplay) {
+      this.pendingCountDisplay.textContent = list.length;
+    }
+  },
+
+  openPendingReview() {
+    this.renderPendingList();
+    this.pendingModal.classList.add('active');
+  },
+
+  renderPendingList() {
+    const list = this.getPendingList();
+    if (!this.pendingList) return;
+
+    if (list.length === 0) {
+      this.pendingList.innerHTML = `
+        <div style="text-align:center;padding:40px 10px;color:#8b949e;">
+          <div style="font-size:36px;margin-bottom:8px;">✅</div>
+          <strong>No pending transactions</strong>
+          <p style="font-size:12px;margin-top:4px;">When a bank SMS arrives, it will appear here for one-tap review.</p>
+        </div>
+      `;
+      return;
+    }
+
+    this.pendingList.innerHTML = list.map(item => `
+      <div class="transaction-item" style="display:flex;justify-content:space-between;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;font-weight:bold;padding:2px 6px;border-radius:6px;background:${item.type === 'income' ? '#064e3b' : '#7f1d1d'};color:${item.type === 'income' ? '#34d399' : '#f87171'};">
+              ${item.type === 'income' ? 'CREDIT' : 'DEBIT'}
+            </span>
+            <strong style="font-size:14px;color:#fff;">${item.sender}</strong>
+          </div>
+          <div style="font-size:11px;color:#8b949e;margin-top:4px;">
+            ${item.date} &bull; TrxID: <code>${item.trxId || 'N/A'}</code>
+          </div>
+          <div style="font-size:10px;color:#6e7681;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            "${item.rawBody || ''}"
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:15px;font-weight:bold;color:${item.type === 'income' ? '#34d399' : '#f87171'};">
+            ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="pill-btn danger-btn" onclick="SmsSyncController.rejectTx('${item.trxId}')" style="padding:4px 8px;font-size:11px;">✕</button>
+            <button class="pill-btn primary-btn" onclick="SmsSyncController.confirmTx('${item.trxId}')" style="padding:4px 10px;font-size:11px;">✓ Add</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  confirmTx(trxId) {
+    const list = this.getPendingList();
+    const item = list.find(x => x.trxId === trxId);
+    if (!item) return;
+
+    // Check if TrxID already exists in state transactions (Step 9)
+    const exists = state.transactions.some(t => t.id === item.trxId || (t.notes && t.notes.includes(item.trxId)));
+    if (!exists) {
+      state.transactions.unshift({
+        id: item.trxId || ('tx_' + Date.now()),
+        title: item.title || `${item.type === 'income' ? 'Received from' : 'Paid via'} ${item.sender}`,
+        amount: item.amount,
+        type: item.type,
+        category: item.category || (item.type === 'income' ? 'Deposit & Income' : 'Payment & Transfer'),
+        date: item.date,
+        recurring: false,
+        notes: `Auto-detected from SMS. TrxID: ${item.trxId}`
+      });
+      Storage.save();
+      renderAll();
+      SoundFX.play('success');
+      showToast(`Added ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)} to your budget!`);
+    } else {
+      showToast('Transaction was already added earlier.');
+    }
+
+    this.removePending(trxId);
+    this.renderPendingList();
+    this.syncPending();
+  },
+
+  rejectTx(trxId) {
+    this.removePending(trxId);
+    this.renderPendingList();
+    this.syncPending();
+    showToast('Transaction removed.');
+  },
+
+  removePending(trxId) {
+    if (window.AndroidSms) {
+      window.AndroidSms.removePendingTransaction(trxId);
+    } else {
+      const list = this.getPendingList().filter(x => x.trxId !== trxId);
+      localStorage.setItem('savewise_demo_sms_queue', JSON.stringify(list));
+    }
+  }
+};
+
