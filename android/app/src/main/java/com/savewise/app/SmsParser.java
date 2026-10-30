@@ -45,12 +45,12 @@ public class SmsParser {
         String lowerBody = body.toLowerCase();
 
         // 1. Determine Type: Credit (income) vs Debit (cost)
-        if (lowerBody.contains("received") || lowerBody.contains("credited") || lowerBody.contains("cash in") || lowerBody.contains("deposit")) {
+        if (lowerBody.contains("received") || lowerBody.contains("recieve") || lowerBody.contains("credited") || lowerBody.contains("cash in") || lowerBody.contains("deposit")) {
             type = "income";
             category = "Deposit & Income";
-        } else if (lowerBody.contains("payment") || lowerBody.contains("paid") || lowerBody.contains("debited") || lowerBody.contains("cash out") || lowerBody.contains("sent") || lowerBody.contains("purchase")) {
+        } else if (lowerBody.contains("payment") || lowerBody.contains("paid") || lowerBody.contains("debited") || lowerBody.contains("cash out") || lowerBody.contains("sent") || lowerBody.contains("purchase") || lowerBody.contains("spent") || lowerBody.contains("buy")) {
             type = "cost";
-            category = "Payment & Transfer";
+            category = lowerBody.contains("grocery") ? "Groceries & Food" : "Payment & Transfer";
         }
 
         if (type == null) {
