@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient: Deep modern fintech mesh -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="45%" stop-color="#0b2938"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+
+    <!-- Shield/Vault Gradient -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Inner Shield Glow -->
+    <linearGradient id="innerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- Gold/Spark Accent Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+
+    <!-- Drop Shadow for layered depth -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle App Icon Base -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bgGrad)" filter="url(#dropShadow)"/>
+
+  <!-- Subtle inner border outline -->
+  <rect x="25" y="25" width="462" height="462" rx="111" fill="none" stroke="#34d399" stroke-width="2.5" stroke-opacity="0.3"/>
+
+  <!-- Outer Shield Protection contour -->
+  <path d="M 256,92
+           C 340,92 400,124 400,124
+           C 400,286 332,374 256,416
+           C 180,374 112,286 112,124
+           C 112,124 172,92 256,92 Z"
+        fill="url(#shieldGrad)"
+        filter="url(#dropShadow)"/>
+
+  <!-- Inner Shield Cutout / Bevel -->
+  <path d="M 256,112
+           C 324,112 376,138 376,138
+           C 376,274 318,352 256,390
+           C 194,352 136,274 136,138
+           C 136,138 188,112 256,112 Z"
+        fill="#0b1e2c"
+        opacity="0.95"/>
+
+  <!-- Dynamic Upward Growth Ribbon / Modern Styled 'S' Crest -->
+  <path d="M 182,316
+           L 230,248
+           L 282,294
+           L 358,184"
+        fill="none"
+        stroke="url(#innerGlow)"
+        stroke-width="20"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.35"/>
+
+  <!-- Primary Financial Growth Curve / Vault Curve -->
+  <path d="M 182,310
+           L 232,242
+           L 282,286
+           L 352,176"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Arrowhead Pointer (Financial Upward Target) -->
+  <path d="M 320,172 L 358,172 L 358,210"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Smart Coin / Golden Wisdom Core -->
+  <circle cx="256" cy="198" r="32" fill="url(#goldGrad)" filter="url(#softGlow)"/>
+  <circle cx="256" cy="198" r="24" fill="none" stroke="#fff" stroke-width="2.5" opacity="0.6"/>
+
+  <!-- Dollar / Prosperity Emblem inside Coin -->
+  <text x="256" y="209"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="28"
+        font-weight="900"
+        fill="#78350f"
+        text-anchor="middle">$</text>
+
+  <!-- Wisdom / AI Sparkle Star -->
+  <path d="M 390,98 Q 390,120 412,120 Q 390,120 390,142 Q 390,120 368,120 Q 390,120 390,98 Z"
+        fill="url(#goldGrad)"/>
+</svg>

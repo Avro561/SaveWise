@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>SaveWise: Smart Finance &amp; Budget Planner</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+  <div id="app" class="app-container">
+
+    <!-- Top App Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-icon">
+          <img src="icons/logo.svg" alt="SaveWise Logo" width="34" height="34" style="display:block;border-radius:8px;">
+        </div>
+        <div>
+          <h1 class="app-title">SaveWise</h1>
+          <span class="app-subtitle" id="currentDateDisplay">October 2026</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <select id="currencySelector" class="currency-select" title="Change Currency">
+          <option value="$" selected>USD ($)</option>
+          <option value="৳">BDT (৳)</option>
+          <option value="₹">INR (₹)</option>
+          <option value="€">EUR (€)</option>
+          <option value="£">GBP (£)</option>
+          <option value="₨">PKR (₨)</option>
+          <option value="C$">CAD (C$)</option>
+          <option value="A$">AUD (A$)</option>
+          <option value="د.إ">AED (د.إ)</option>
+        </select>
+        <button id="themeToggleBtn" class="icon-btn" title="Toggle Theme" aria-label="Toggle Theme">
+          <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="Settings & Backup" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+
+      <!-- TAB 1: DASHBOARD -->
+      <section id="tab-dashboard" class="tab-pane active">
+        <!-- Monthly Financial Cards -->
+        <div class="balance-card">
+          <div class="balance-label">Total Net Savings this Month</div>
+          <div class="balance-amount" id="netSavingsDisplay">$0.00</div>
+          <div class="balance-meta">
+            <span class="savings-badge" id="savingsRateBadge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <span id="savingsRateDisplay">0%</span> Saved
+            </span>
+            <span class="days-left" id="daysLeftDisplay">30 days left</span>
+          </div>
+        </div>
+
+        <!-- Earn vs Cost summary cards -->
+        <div class="metric-grid">
+          <div class="metric-card earn-card" id="filterEarnCard">
+            <div class="metric-icon-wrap earn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </div>
+            <div>
+              <div class="metric-title">Total Earned</div>
+              <div class="metric-value" id="totalEarnDisplay">$0.00</div>
+            </div>
+          </div>
+          <div class="metric-card cost-card" id="filterCostCard">
+            <div class="metric-icon-wrap cost-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+            </div>
+            <div>
+              <div class="metric-title">Total Costs</div>
+              <div class="metric-value" id="totalCostDisplay">$0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 50/30/20 Rule Progress Card -->
+        <div class="card rule-card">
+          <div class="card-header">
+            <h3>50/30/20 Budget Health</h3>
+            <span class="badge info" id="budgetHealthBadge">On Track</span>
+          </div>
+          <div class="budget-split-bars">
+            <div class="split-segment needs-segment" id="needsBar" style="width: 50%" title="Needs"></div>
+            <div class="split-segment wants-segment" id="wantsBar" style="width: 30%" title="Wants"></div>
+            <div class="split-segment savings-segment" id="savingsBar" style="width: 20%" title="Savings"></div>
+          </div>
+          <div class="rule-legend">
+            <div class="legend-item"><span class="dot needs-dot"></span> Needs (<span id="needsPctDisplay">0%</span> / 50%)</div>
+            <div class="legend-item"><span class="dot wants-dot"></span> Wants (<span id="wantsPctDisplay">0%</span> / 30%)</div>
+            <div class="legend-item"><span class="dot savings-dot"></span> Savings (<span id="savingsPctDisplay">0%</span> / 20%)</div>
+          </div>
+        </div>
+
+        <!-- Quick AI Savings Alert Banner -->
+        <div class="card tip-banner" id="dashboardHeroTip">
+          <div class="tip-banner-header">
+            <div class="tip-chip" id="dashboardTipBadge">Savings Advisor</div>
+          </div>
+          <div class="tip-banner-body">
+            <h4 id="dashboardTipTitle">Smart Advice Loading...</h4>
+            <p id="dashboardTipMsg">Start adding your earnings and daily expenses to receive customized cost-cutting suggestions!</p>
+          </div>
+          <button class="text-link-btn" id="seeAllTipsBtn">View Full Advisory Plan &rarr;</button>
+        </div>
+
+        <!-- Category Spending Chart Card -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <h3>Expense Breakdown</h3>
+            <span class="subtext">By Category</span>
+          </div>
+          <div class="chart-container">
+            <svg id="categoryDonutChart" viewBox="0 0 100 100" class="donut-svg"></svg>
+            <div id="chartCenterText" class="donut-center-text">
+              <span class="chart-total-label">Cost</span>
+              <span class="chart-total-amount" id="chartTotalAmount">$0</span>
+            </div>
+          </div>
+          <div id="categoryLegendList" class="category-legend-list"></div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Recent Transactions</h3>
+            <button class="text-link-btn" id="viewAllTxBtn">See All</button>
+          </div>
+          <div id="recentTxList" class="transaction-list">
+            <div class="empty-state">No transactions yet. Tap + to add!</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DAILY EXPENSES -->
+      <section id="tab-daily" class="tab-pane">
+        <!-- Daily Tracker Card -->
+        <div class="card daily-hero-card">
+          <div class="daily-hero-header">
+            <div>
+              <span class="daily-hero-badge">Today's Expense Tracker</span>
+              <h2 id="todayDateHeading">Today</h2>
+            </div>
+            <button id="editDailyLimitBtn" class="pill-btn" title="Edit Daily Budget">
+              Limit: <span id="dailyLimitVal">$25.00</span> ✎
+            </button>
+          </div>
+
+          <div class="daily-meter">
+            <div class="meter-bar">
+              <div id="dailySpentBar" class="meter-fill" style="width: 0%"></div>
+            </div>
+            <div class="meter-stats">
+              <div>
+                <span class="label">Spent Today:</span>
+                <span class="val text-cost" id="todaySpentVal">$0.00</span>
+              </div>
+              <div>
+                <span class="label">Remaining:</span>
+                <span class="val text-earn" id="todayRemainingVal">$25.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fast 1-Tap Daily Expense Buttons -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Quick Daily Logging</h3>
+            <span class="subtext">1-Tap Frequent Costs</span>
+          </div>
+          <div class="quick-chips-grid">
+            <button class="quick-chip" data-cat="Dining Out" data-name="Coffee / Tea" data-amount="3">
+              ☕ Coffee/Tea
+            </button>
+            <button class="quick-chip" data-cat="Dining Out" data-name="Lunch" data-amount="10">
+              🍱 Lunch
+            </button>
+            <button class="quick-chip" data-cat="Groceries" data-name="Daily Groceries" data-amount="15">
+              🛒 Groceries
+            </button>
+            <button class="quick-chip" data-cat="Transport & Fuel" data-name="Bus/Train/Taxi" data-amount="5">
+              🚌 Transport
+            </button>
+            <button class="quick-chip" data-cat="Dining Out" data-name="Evening Snacks" data-amount="4">
+              🍿 Snacks
+            </button>
+            <button class="quick-chip" data-cat="Utilities & Bills" data-name="Mobile Recharge" data-amount="10">
+              📱 Mobile Bill
+            </button>
+          </div>
+        </div>
+
+        <!-- Today's Transactions Log -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Today's Activity Log</h3>
+            <span id="todayCountBadge" class="count-badge">0 items</span>
+          </div>
+          <div id="todayTxList" class="transaction-list">
+            <div class="empty-state">No costs recorded for today yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: TRANSACTIONS (CRUD) -->
+      <section id="tab-transactions" class="tab-pane">
+        <!-- Filter and Search Bar -->
+        <div class="filter-controls">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="txSearchInput" placeholder="Search costs, earnings, notes...">
+          </div>
+          <div class="filter-row">
+            <select id="txTypeFilter" class="filter-select">
+              <option value="all">All Types</option>
+              <option value="cost">Only Costs (Expenses)</option>
+              <option value="earn">Only Earnings (Income)</option>
+            </select>
+            <select id="txCategoryFilter" class="filter-select">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div class="filter-row">
+            <select id="txTimeFilter" class="filter-select">
+              <option value="all">All Time</option>
+              <option value="this_month" selected>This Month</option>
+              <option value="today">Today</option>
+              <option value="last_7_days">Last 7 Days</option>
+              <option value="last_month">Last Month</option>
+            </select>
+            <button id="exportCsvBtn" class="pill-btn secondary-btn" title="Export to CSV">
+              📥 Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Transaction List -->
+        <div class="card">
+          <div class="card-header">
+            <h3 id="txListHeading">Transactions</h3>
+            <span id="txTotalCount" class="subtext">0 records</span>
+          </div>
+          <div id="allTxList" class="transaction-list">
+            <div class="empty-state">No transactions match your filter.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: ADVISOR & SAVINGS -->
+      <section id="tab-advisor" class="tab-pane">
+        <!-- Advisory Hero -->
+        <div class="card advisor-hero-card">
+          <div class="advisor-hero-header">
+            <div class="advisor-avatar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div>
+              <h2>AI Financial Coach</h2>
+              <p>Personalized suggestions to maximize your monthly savings</p>
+            </div>
+          </div>
+
+          <!-- Month Projection Meter -->
+          <div class="projection-grid">
+            <div class="projection-box">
+              <span class="proj-label">Daily Burn Rate</span>
+              <span class="proj-val" id="advDailyBurn">$0.00/day</span>
+            </div>
+            <div class="projection-box">
+              <span class="proj-label">Projected Month-End Savings</span>
+              <span class="proj-val text-earn" id="advProjectedSavings">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actionable Suggestions Feed -->
+        <div class="section-title">Actionable Recommendations</div>
+        <div id="advisorSuggestionsList" class="suggestions-list">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Interactive "What-If" Savings Simulator -->
+        <div class="card simulator-card">
+          <div class="card-header">
+            <h3>Interactive Savings Simulator</h3>
+            <span class="badge success">What-If Tool</span>
+          </div>
+          <p class="subtext">Slide to see how reducing discretionary spending boosts your bank balance!</p>
+
+          <div class="sim-slider-group">
+            <div class="slider-header">
+              <span>Cut Dining Out spending by:</span>
+              <strong id="diningCutVal">25%</strong>
+            </div>
+            <input type="range" id="diningCutSlider" min="0" max="60" step="5" value="25">
+          </div>
+
+          <div class="sim-slider-group">
+            <div class="slider-header">
+              <span>Cut Shopping spending by:</span>
+              <strong id="shoppingCutVal">20%</strong>
+            </div>
+            <input type="range" id="shoppingCutSlider" min="0" max="60" step="5" value="20">
+          </div>
+
+          <div class="sim-results">
+            <div class="sim-result-box">
+              <span>Extra Monthly Savings</span>
+              <strong id="simMonthlySaved" class="text-earn">+$0.00</strong>
+            </div>
+            <div class="sim-result-box highlight">
+              <span>Extra in 1 Year</span>
+              <strong id="simAnnualSaved" class="text-earn">+$0.00</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: GOALS -->
+      <section id="tab-goals" class="tab-pane">
+        <div class="card goals-header-card">
+          <div class="card-header">
+            <div>
+              <h2>Target Savings Goals</h2>
+              <p class="subtext">Set targets and track milestones towards financial freedom</p>
+            </div>
+            <button id="addGoalBtn" class="primary-btn sm-btn">+ New Goal</button>
+          </div>
+        </div>
+
+        <div id="goalsList" class="goals-grid">
+          <!-- Dynamically populated goals -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Floating Action Button (FAB) -->
+    <button id="mainFab" class="floating-fab" aria-label="Add transaction" title="Add Cost or Earnings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <!-- Bottom Navigation Bar (Material 3 Android style) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="tab-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-tab="tab-daily">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Daily</span>
+      </button>
+      <button class="nav-item" data-tab="tab-transactions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span>History</span>
+      </button>
+      <button class="nav-item" data-tab="tab-advisor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <span>Advisor</span>
+      </button>
+      <button class="nav-item" data-tab="tab-goals">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span>Goals</span>
+      </button>
+    </nav>
+
+    <!-- MODAL: ADD / EDIT TRANSACTION -->
+    <div id="txModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3 id="modalTitle">Record Transaction</h3>
+          <button class="close-btn" id="closeTxModalBtn">&times;</button>
+        </div>
+
+        <form id="txForm" class="modal-form">
+          <input type="hidden" id="editTxId">
+
+          <!-- Type Switcher -->
+          <div class="type-toggle-group">
+            <button type="button" class="type-toggle-btn active" id="typeCostBtn" data-type="cost">
+              🔻 Expense (Cost)
+            </button>
+            <button type="button" class="type-toggle-btn" id="typeEarnBtn" data-type="earn">
+              🟢 Income (Earn)
+            </button>
+          </div>
+
+          <!-- Amount -->
+          <div class="form-group">
+            <label for="txAmount">Amount (<span class="currency-label">$</span>)</label>
+            <div class="amount-input-wrap">
+              <span class="currency-symbol">$</span>
+              <input type="number" step="0.01" min="0.01" id="txAmount" placeholder="0.00" required autofocus>
+            </div>
+          </div>
+
+          <!-- Title / Note -->
+          <div class="form-group">
+            <label for="txTitle">Description / Item Name</label>
+            <input type="text" id="txTitle" placeholder="e.g. Groceries, Freelance project, Lunch" required>
+          </div>
+
+          <!-- Category -->
+          <div class="form-group">
+            <label for="txCategory">Category</label>
+            <select id="txCategory" required>
+              <!-- Filled dynamically based on type -->
+            </select>
+          </div>
+
+          <div class="form-row">
+            <!-- Date -->
+            <div class="form-group flex-1">
+              <label for="txDate">Date</label>
+              <input type="date" id="txDate" required>
+            </div>
+            <!-- Payment Mode -->
+            <div class="form-group flex-1">
+              <label for="txPaymentMethod">Payment Mode</label>
+              <select id="txPaymentMethod">
+                <option value="Cash">Cash</option>
+                <option value="Debit Card">Debit Card</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Mobile Banking">Mobile Banking (bKash/UPI/Venmo)</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="pill-btn secondary-btn" id="cancelTxBtn">Cancel</button>
+            <button type="submit" class="primary-btn" id="saveTxBtn">Save Entry</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT GOAL -->
+    <div id="goalModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3 id="goalModalTitle">New Savings Goal</h3>
+          <button class="close-btn" id="closeGoalModalBtn">&times;</button>
+        </div>
+
+        <form id="goalForm" class="modal-form">
+          <input type="hidden" id="editGoalId">
+
+          <div class="form-group">
+            <label for="goalName">Goal Name</label>
+            <input type="text" id="goalName" placeholder="e.g. Emergency Fund, New Laptop, Vacation" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="goalTarget">Target Amount (<span class="currency-label">$</span>)</label>
+              <input type="number" step="1" min="1" id="goalTarget" placeholder="1000" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="goalSaved">Currently Saved</label>
+              <input type="number" step="1" min="0" id="goalSaved" placeholder="0" value="0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="goalDeadline">Target Date (Optional)</label>
+            <input type="date" id="goalDeadline">
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="pill-btn secondary-btn" id="cancelGoalBtn">Cancel</button>
+            <button type="submit" class="primary-btn">Save Goal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT DAILY LIMIT -->
+    <div id="dailyLimitModal" class="modal-overlay">
+      <div class="modal-sheet sm-sheet">
+        <div class="modal-header">
+          <h3>Set Daily Spending Limit</h3>
+          <button class="close-btn" id="closeDailyLimitModalBtn">&times;</button>
+        </div>
+        <div class="modal-form">
+          <p class="subtext">Setting a daily spending cap prevents accidental budget leaks and trains consistent savings habits.</p>
+          <div class="form-group">
+            <label for="customDailyInput">Daily Limit (<span class="currency-label">$</span>)</label>
+            <div class="amount-input-wrap">
+              <span class="currency-symbol">$</span>
+              <input type="number" step="1" min="1" id="customDailyInput" placeholder="25">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="pill-btn secondary-btn" id="cancelDailyLimitBtn">Cancel</button>
+            <button type="button" class="primary-btn" id="saveDailyLimitBtn">Update Limit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SETTINGS & BACKUP -->
+    <div id="settingsModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3>Settings & Data Management</h3>
+          <button class="close-btn" id="closeSettingsModalBtn">&times;</button>
+        </div>
+        <div class="settings-content">
+          <div class="setting-item">
+            <div>
+              <strong>Sound Effects</strong>
+              <p class="subtext">Pleasant audio feedback when adding and saving</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="soundToggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <hr class="divider">
+
+          <div class="setting-item-block">
+            <strong>Android APK & Installation</strong>
+            <p class="subtext">Install this app natively on your phone or compile the included Android Studio APK package.</p>
+            <button class="pill-btn primary-btn mt-2" id="openApkGuideBtn">📲 APK & Installation Guide</button>
+          </div>
+
+          <hr class="divider">
+
+          <div class="setting-item-block">
+            <strong>Data Backup & Restore</strong>
+            <p class="subtext">Your data is stored 100% locally and privately on this device.</p>
+            <div class="btn-group mt-2">
+              <button class="pill-btn secondary-btn" id="backupDataBtn">💾 Backup to JSON</button>
+              <label class="pill-btn secondary-btn file-label" for="restoreFileInput">
+                📂 Restore from JSON
+              </label>
+              <input type="file" id="restoreFileInput" accept=".json" style="display:none">
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="setting-item-block">
+            <strong>Demo Data</strong>
+            <p class="subtext">Populate with realistic sample expenses and income to test all AI savings features immediately.</p>
+            <button class="pill-btn secondary-btn mt-2" id="loadSampleDataBtn">✨ Load Demo Data</button>
+          </div>
+
+          <hr class="divider">
+
+          <div class="setting-item-block">
+            <strong class="text-cost">Reset Everything</strong>
+            <p class="subtext">Clear all transactions and reset your budget.</p>
+            <button class="pill-btn danger-btn mt-2" id="clearAllDataBtn">🗑️ Clear All Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: APK GUIDE -->
+    <div id="apkGuideModal" class="modal-overlay">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3>Android APK Installation Guide</h3>
+          <button class="close-btn" id="closeApkGuideBtn">&times;</button>
+        </div>
+        <div class="guide-content">
+          <div class="guide-step">
+            <div class="step-num">Method 1</div>
+            <div class="step-details">
+              <strong>Direct Native WebAPK (Fastest - No Android Studio needed)</strong>
+              <p>1. Open this app in Google Chrome or Microsoft Edge on your Android phone.</p>
+              <p>2. Tap the Chrome menu (⋮) -> Select <strong>"Install app"</strong> or <strong>"Add to Home Screen"</strong>.</p>
+              <p>3. Android will automatically compile and install a native <code>.apk</code> on your home screen and app drawer with 100% offline capability.</p>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-num">Method 2</div>
+            <div class="step-details">
+              <strong>1-Minute Cloud APK Generator (PWABuilder)</strong>
+              <p>1. Open <a href="https://www.pwabuilder.com" target="_blank">PWABuilder.com</a>.</p>
+              <p>2. Enter your app's URL or upload this folder.</p>
+              <p>3. Click <strong>"Generate Android APK"</strong> -> Download signed APK ready for side-loading!</p>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-num">Method 3</div>
+            <div class="step-details">
+              <strong>Full Android Studio Project (Included in Workspace)</strong>
+              <p>The native Android project is located at <code>savewise-app/android/</code>.</p>
+              <p>1. Open Android Studio -> Select <strong>Open Project</strong> -> choose <code>savewise-app/android</code>.</p>
+              <p>2. Click <strong>Build</strong> -> <strong>Build Bundle(s) / APK(s)</strong> -> <strong>Build APK(s)</strong>.</p>
+              <p>3. Your debug/release APK will be generated in <code>app/build/outputs/apk/</code>!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+  </div>
+
+  <script src="advisory.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
