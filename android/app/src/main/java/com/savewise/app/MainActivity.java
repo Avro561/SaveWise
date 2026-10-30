@@ -81,7 +81,26 @@ public class MainActivity extends Activity {
             }
         });
 
-        mWebView.setWebChromeClient(new WebChromeClient());
+        mWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+                android.util.Log.d("SaveWiseJS", consoleMessage.message() + " -- From line "
+                        + consoleMessage.lineNumber() + " of "
+                        + consoleMessage.sourceId());
+                return true;
+            }
+        });
+
+        // Expose helper to evaluate JS on UI thread safely from native code
+        // and automatically trigger queue sync after page is loaded
+        mWebView.postDelayed(() -> {
+            mWebView.evaluateJavascript("if (window.SmsSyncController) window.SmsSyncController.syncPending();", null);
+        }, 1500);
+
+        // Enable remote debugging of WebView via Chrome devtools
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
 
         // Load offline web bundle packaged inside the APK assets
         mWebView.loadUrl("file:///android_asset/index.html");

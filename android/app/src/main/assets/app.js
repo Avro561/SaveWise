@@ -1321,18 +1321,43 @@ const SmsSyncController = {
             ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)}
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="pill-btn danger-btn" onclick="SmsSyncController.rejectTx('${item.trxId}')" style="padding:4px 8px;font-size:11px;">✕</button>
-            <button class="pill-btn primary-btn" onclick="SmsSyncController.confirmTx('${item.trxId}')" style="padding:4px 10px;font-size:11px;">✓ Add</button>
+            <button class="pill-btn danger-btn" data-reject="${item.trxId}" style="padding:4px 8px;font-size:11px;">✕</button>
+            <button class="pill-btn primary-btn" data-confirm="${item.trxId}" style="padding:4px 10px;font-size:11px;">✓ Add</button>
           </div>
         </div>
       </div>
     `).join('');
+
+    // Attach direct click listeners to confirm and reject buttons
+    this.pendingList.querySelectorAll('[data-confirm]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const trxId = btn.getAttribute('data-confirm');
+        console.log('Confirm clicked for TrxID:', trxId);
+        SmsSyncController.confirmTx(trxId);
+      });
+    });
+
+    this.pendingList.querySelectorAll('[data-reject]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const trxId = btn.getAttribute('data-reject');
+        console.log('Reject clicked for TrxID:', trxId);
+        SmsSyncController.rejectTx(trxId);
+      });
+    });
   },
 
   confirmTx(trxId) {
+    console.log('Running confirmTx for:', trxId);
     const list = this.getPendingList();
     const item = list.find(x => x.trxId === trxId);
-    if (!item) return;
+    if (!item) {
+      console.warn('Item not found in pending list:', trxId);
+      return;
+    }
 
     // Check if TrxID already exists in state transactions (Step 9)
     const exists = state.transactions.some(t => t.id === item.trxId || (t.notes && t.notes.includes(item.trxId)));
