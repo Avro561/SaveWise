@@ -106,7 +106,14 @@ const Storage = {
   load() {
     try {
       const tx = localStorage.getItem(this.KEY_TX);
-      if (tx) state.transactions = JSON.parse(tx);
+      if (tx) {
+        state.transactions = JSON.parse(tx).map(t => {
+          // Self-heal: ensure type is strictly 'earn' or 'cost'
+          if (t.type === 'income' || t.type === 'credit') t.type = 'earn';
+          if (t.type === 'debit') t.type = 'cost';
+          return t;
+        });
+      }
 
       const goals = localStorage.getItem(this.KEY_GOALS);
       if (goals) state.goals = JSON.parse(goals);
@@ -1300,25 +1307,27 @@ const SmsSyncController = {
       return;
     }
 
-    this.pendingList.innerHTML = list.map(item => `
+    this.pendingList.innerHTML = list.map(item => {
+      const isEarn = item.type === 'earn' || item.type === 'income';
+      return `
       <div class="transaction-item" style="display:flex;justify-content:space-between;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
         <div>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:11px;font-weight:bold;padding:2px 6px;border-radius:6px;background:${item.type === 'income' ? '#064e3b' : '#7f1d1d'};color:${item.type === 'income' ? '#34d399' : '#f87171'};">
-              ${item.type === 'income' ? 'CREDIT' : 'DEBIT'}
+            <span style="font-size:11px;font-weight:bold;padding:2px 6px;border-radius:6px;background:${isEarn ? '#064e3b' : '#7f1d1d'};color:${isEarn ? '#34d399' : '#f87171'};">
+              ${isEarn ? 'CREDIT (EARN)' : 'DEBIT (COST)'}
             </span>
             <strong style="font-size:14px;color:#fff;">${item.sender}</strong>
           </div>
           <div style="font-size:11px;color:#8b949e;margin-top:4px;">
-            ${item.date} &bull; TrxID: <code>${item.trxId || 'N/A'}</code>
+            ${item.date} &bull; Category: <strong>${item.category || (isEarn ? 'Salary' : 'Other Expense')}</strong> &bull; TrxID: <code>${item.trxId || 'N/A'}</code>
           </div>
           <div style="font-size:10px;color:#6e7681;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             "${item.rawBody || ''}"
           </div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:15px;font-weight:bold;color:${item.type === 'income' ? '#34d399' : '#f87171'};">
-            ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)}
+          <div style="font-size:15px;font-weight:bold;color:${isEarn ? '#34d399' : '#f87171'};">
+            ${isEarn ? '+' : '-'}${formatMoney(item.amount)}
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="pill-btn danger-btn" data-reject="${item.trxId}" style="padding:4px 8px;font-size:11px;">✕</button>
@@ -1326,7 +1335,8 @@ const SmsSyncController = {
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Attach direct click listeners to confirm and reject buttons
     this.pendingList.querySelectorAll('[data-confirm]').forEach(btn => {
@@ -1359,23 +1369,29 @@ const SmsSyncController = {
       return;
     }
 
+    // Normalize type to 'earn' or 'cost'
+    const isEarn = item.type === 'earn' || item.type === 'income' || item.type === 'credit';
+    const txType = isEarn ? 'earn' : 'cost';
+    const defaultCat = isEarn ? 'Salary' : 'Other Expense';
+
     // Check if TrxID already exists in state transactions (Step 9)
     const exists = state.transactions.some(t => t.id === item.trxId || (t.notes && t.notes.includes(item.trxId)));
     if (!exists) {
       state.transactions.unshift({
         id: item.trxId || ('tx_' + Date.now()),
-        title: item.title || `${item.type === 'income' ? 'Received from' : 'Paid via'} ${item.sender}`,
-        amount: item.amount,
-        type: item.type,
-        category: item.category || (item.type === 'income' ? 'Deposit & Income' : 'Payment & Transfer'),
-        date: item.date,
+        title: item.title || `${isEarn ? 'Received from' : 'Paid via'} ${item.sender}`,
+        amount: parseFloat(item.amount) || 0,
+        type: txType,
+        category: item.category || defaultCat,
+        date: item.date ? (item.date + 'T12:00:00') : new Date().toISOString(),
+        paymentMethod: 'SMS / Banking',
         recurring: false,
         notes: `Auto-detected from SMS. TrxID: ${item.trxId}`
       });
       Storage.save();
       renderAll();
       SoundFX.play('success');
-      showToast(`Added ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)} to your budget!`);
+      showToast(`Added ${isEarn ? '+' : '-'}${formatMoney(item.amount)} to ${isEarn ? 'Total Earned' : 'Total Costs'}!`);
     } else {
       showToast('Transaction was already added earlier.');
     }

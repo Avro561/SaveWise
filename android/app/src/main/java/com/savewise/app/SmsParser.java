@@ -44,13 +44,19 @@ public class SmsParser {
 
         String lowerBody = body.toLowerCase();
 
-        // 1. Determine Type: Credit (income) vs Debit (cost)
+        // 1. Determine Type: Credit (earn) vs Debit (cost)
         if (lowerBody.contains("received") || lowerBody.contains("recieve") || lowerBody.contains("credited") || lowerBody.contains("cash in") || lowerBody.contains("deposit")) {
-            type = "income";
-            category = "Deposit & Income";
+            type = "earn";
+            category = lowerBody.contains("salary") ? "Salary" : "Other Income";
         } else if (lowerBody.contains("payment") || lowerBody.contains("paid") || lowerBody.contains("debited") || lowerBody.contains("cash out") || lowerBody.contains("sent") || lowerBody.contains("purchase") || lowerBody.contains("spent") || lowerBody.contains("buy")) {
             type = "cost";
-            category = lowerBody.contains("grocery") ? "Groceries & Food" : "Payment & Transfer";
+            if (lowerBody.contains("rent") || lowerBody.contains("house")) {
+                category = "Housing & Rent";
+            } else if (lowerBody.contains("grocery") || lowerBody.contains("groceries")) {
+                category = "Groceries";
+            } else {
+                category = "Other Expense";
+            }
         }
 
         if (type == null) {
@@ -102,7 +108,7 @@ public class SmsParser {
             json.put("id", trxId);
             json.put("trxId", trxId);
             json.put("sender", sender != null ? sender : "Unknown Bank");
-            json.put("title", (type.equals("income") ? "Received from " : "Paid via ") + sender);
+            json.put("title", (type.equals("earn") ? "Received from " : "Paid via ") + sender);
             json.put("amount", amount);
             json.put("type", type);
             json.put("category", category);
