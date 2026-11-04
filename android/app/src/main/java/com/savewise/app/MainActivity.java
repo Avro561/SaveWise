@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -14,10 +15,13 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
+import androidx.webkit.WebViewAssetLoader;
+import java.io.ByteArrayInputStream;
 
 public class MainActivity extends Activity {
 
@@ -40,26 +44,50 @@ public class MainActivity extends Activity {
         mWebView = new WebView(this);
         setContentView(mWebView);
 
+        // Hardened WebSettings: no file or content access, no mixed content
         WebSettings webSettings = mWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
+        webSettings.setAllowFileAccess(false);
+        webSettings.setAllowContentAccess(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        }
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
         webSettings.setBuiltInZoomControls(false);
         webSettings.setDisplayZoomControls(false);
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
+        // Configure safe local asset loader (serves from https://appassets.androidplatform.net/assets/)
+        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+
         // Expose AndroidSms JavaScript Bridge
         mWebView.addJavascriptInterface(new SmsJsBridge(this), "AndroidSms");
 
-        // Keep all navigation inside the WebView
+        // Hardened WebViewClient: intercept via assetLoader and block all external navigation
         mWebView.setWebViewClient(new WebViewClient() {
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                if ("appassets.androidplatform.net".equals(url.getHost())) {
+                    return assetLoader.shouldInterceptRequest(url);
+                }
+                // Block all external resource requests entirely
+                return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return false;
+                Uri uri = request.getUrl();
+                if ("appassets.androidplatform.net".equals(uri.getHost())) {
+                    return false;
+                }
+                // Block all external URL navigation attempts
+                return true;
             }
 
             @Override
@@ -97,13 +125,14 @@ public class MainActivity extends Activity {
             mWebView.evaluateJavascript("if (window.SmsSyncController) window.SmsSyncController.syncPending();", null);
         }, 1500);
 
-        // Enable remote debugging of WebView via Chrome devtools
+        // Remote debugging of WebView ONLY for debuggable builds
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            WebView.setWebContentsDebuggingEnabled(true);
+            boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            WebView.setWebContentsDebuggingEnabled(isDebuggable);
         }
 
-        // Load offline web bundle packaged inside the APK assets
-        mWebView.loadUrl("file:///android_asset/index.html");
+        // Load offline web bundle via WebViewAssetLoader virtual domain
+        mWebView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
     @Override

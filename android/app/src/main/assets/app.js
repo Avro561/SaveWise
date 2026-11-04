@@ -500,7 +500,7 @@ function renderDonutChart(categoryTotals, totalExpense) {
     row.innerHTML = `
       <div class="legend-left">
         <span class="legend-color-box" style="background-color: ${meta.color}"></span>
-        <span>${meta.icon} ${catName}</span>
+        <span>${meta.icon} ${escapeHTML(catName)}</span>
       </div>
       <div>
         <strong>${formatMoney(amount)}</strong>
@@ -567,14 +567,14 @@ function renderTxItems(items, container) {
         </div>
         <div>
           <div class="tx-title">${escapeHTML(t.title || t.category)}</div>
-          <div class="tx-meta">${meta.icon} ${t.category} • ${dateFormatted} • ${t.paymentMethod || 'Cash'}</div>
+          <div class="tx-meta">${meta.icon} ${escapeHTML(t.category)} • ${escapeHTML(dateFormatted)} • ${escapeHTML(t.paymentMethod || 'Cash')}</div>
         </div>
       </div>
       <div class="tx-right">
         <div class="tx-amount ${colorClass}">${sign}${formatMoney(t.amount)}</div>
         <div class="tx-actions">
-          <button class="tx-action-btn edit-tx-btn" data-id="${t.id}">✎ Edit</button>
-          <button class="tx-action-btn delete-tx-btn" data-id="${t.id}">🗑️</button>
+          <button class="tx-action-btn edit-tx-btn" data-id="${escapeHTML(t.id)}">✎ Edit</button>
+          <button class="tx-action-btn delete-tx-btn" data-id="${escapeHTML(t.id)}">🗑️</button>
         </div>
       </div>
     `;
@@ -650,11 +650,11 @@ function renderAdvisor(analysis) {
     card.className = `suggestion-card ${tip.severity}`;
     card.innerHTML = `
       <div class="sug-header">
-        <span class="sug-badge ${tip.severity}">${tip.badge}</span>
+        <span class="sug-badge ${escapeHTML(tip.severity)}">${escapeHTML(tip.badge)}</span>
       </div>
-      <div class="sug-title">${tip.title}</div>
-      <div class="sug-msg">${tip.message}</div>
-      <div class="sug-action">💡 <strong>Advice:</strong> ${tip.action}</div>
+      <div class="sug-title">${escapeHTML(tip.title)}</div>
+      <div class="sug-msg">${escapeHTML(tip.message)}</div>
+      <div class="sug-action">💡 <strong>Advice:</strong> ${escapeHTML(tip.action)}</div>
     `;
     DOM.advisorSuggestionsList.appendChild(card);
   });
@@ -701,9 +701,9 @@ function renderGoals() {
       <div class="goal-header">
         <div>
           <div class="goal-name">🎯 ${escapeHTML(goal.name)}</div>
-          <div class="goal-deadline">${goal.deadline ? `Target: ${goal.deadline}` : 'No deadline'}</div>
+          <div class="goal-deadline">${goal.deadline ? `Target: ${escapeHTML(goal.deadline)}` : 'No deadline'}</div>
         </div>
-        <button class="tx-action-btn delete-goal-btn" data-id="${goal.id}">🗑️</button>
+        <button class="tx-action-btn delete-goal-btn" data-id="${escapeHTML(goal.id)}">🗑️</button>
       </div>
       <div class="goal-bar">
         <div class="goal-bar-fill" style="width: ${pct}%"></div>
@@ -712,7 +712,7 @@ function renderGoals() {
         <span>${formatMoney(saved)} saved (${pct.toFixed(0)}%)</span>
         <span>Target: ${formatMoney(target)}</span>
       </div>
-      <button class="goal-quick-add-btn add-to-goal-btn" data-id="${goal.id}">+ Allocate $10 to this Goal</button>
+      <button class="goal-quick-add-btn add-to-goal-btn" data-id="${escapeHTML(goal.id)}">+ Allocate $10 to this Goal</button>
     `;
 
     card.querySelector('.delete-goal-btn').addEventListener('click', () => deleteGoal(goal.id));
@@ -729,13 +729,14 @@ function renderGoals() {
 }
 
 function escapeHTML(str) {
-  if (!str) return '';
-  return str.replace(/[&<>'"]/g, tag => ({
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>'"`]/g, tag => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     "'": '&#39;',
-    '"': '&quot;'
+    '"': '&quot;',
+    '`': '&#96;'
   }[tag] || tag));
 }
 
@@ -1393,67 +1394,108 @@ const SmsSyncController = {
     const list = this.getPendingList();
     if (!this.pendingList) return;
 
+    this.pendingList.innerHTML = '';
+
     if (list.length === 0) {
-      this.pendingList.innerHTML = `
-        <div style="text-align:center;padding:40px 10px;color:#8b949e;">
-          <div style="font-size:36px;margin-bottom:8px;">✅</div>
-          <strong>No pending transactions</strong>
-          <p style="font-size:12px;margin-top:4px;">When a bank SMS arrives, it will appear here for one-tap review.</p>
-        </div>
-      `;
+      const emptyDiv = document.createElement('div');
+      emptyDiv.style.cssText = 'text-align:center;padding:40px 10px;color:#8b949e;';
+
+      const icon = document.createElement('div');
+      icon.style.cssText = 'font-size:36px;margin-bottom:8px;';
+      icon.textContent = '✅';
+
+      const title = document.createElement('strong');
+      title.textContent = 'No pending transactions';
+
+      const subtitle = document.createElement('p');
+      subtitle.style.cssText = 'font-size:12px;margin-top:4px;';
+      subtitle.textContent = 'When a bank SMS arrives, it will appear here for one-tap review.';
+
+      emptyDiv.appendChild(icon);
+      emptyDiv.appendChild(title);
+      emptyDiv.appendChild(subtitle);
+      this.pendingList.appendChild(emptyDiv);
       return;
     }
 
-    this.pendingList.innerHTML = list.map(item => {
+    list.forEach(item => {
       const isEarn = item.type === 'earn' || item.type === 'income';
-      return `
-      <div class="transaction-item" style="display:flex;justify-content:space-between;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 14px;margin-bottom:10px;">
-        <div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:11px;font-weight:bold;padding:2px 6px;border-radius:6px;background:${isEarn ? '#064e3b' : '#7f1d1d'};color:${isEarn ? '#34d399' : '#f87171'};">
-              ${isEarn ? 'CREDIT (EARN)' : 'DEBIT (COST)'}
-            </span>
-            <strong style="font-size:14px;color:#fff;">${item.sender}</strong>
-          </div>
-          <div style="font-size:11px;color:#8b949e;margin-top:4px;">
-            ${item.date} &bull; Category: <strong>${item.category || (isEarn ? 'Salary' : 'Other Expense')}</strong> &bull; TrxID: <code>${item.trxId || 'N/A'}</code>
-          </div>
-          <div style="font-size:10px;color:#6e7681;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            "${item.rawBody || ''}"
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:15px;font-weight:bold;color:${isEarn ? '#34d399' : '#f87171'};">
-            ${isEarn ? '+' : '-'}${formatMoney(item.amount)}
-          </div>
-          <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="pill-btn danger-btn" data-reject="${item.trxId}" style="padding:4px 8px;font-size:11px;">✕</button>
-            <button class="pill-btn primary-btn" data-confirm="${item.trxId}" style="padding:4px 10px;font-size:11px;">✓ Add</button>
-          </div>
-        </div>
-      </div>
-    `;
-    }).join('');
 
-    // Attach direct click listeners to confirm and reject buttons
-    this.pendingList.querySelectorAll('[data-confirm]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      const itemCard = document.createElement('div');
+      itemCard.className = 'transaction-item';
+      itemCard.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 14px;margin-bottom:10px;';
+
+      // Left Column
+      const leftCol = document.createElement('div');
+
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+      const badge = document.createElement('span');
+      badge.style.cssText = `font-size:11px;font-weight:bold;padding:2px 6px;border-radius:6px;background:${isEarn ? '#064e3b' : '#7f1d1d'};color:${isEarn ? '#34d399' : '#f87171'};`;
+      badge.textContent = isEarn ? 'CREDIT (EARN)' : 'DEBIT (COST)';
+
+      const senderEl = document.createElement('strong');
+      senderEl.style.cssText = 'font-size:14px;color:#fff;';
+      senderEl.textContent = item.sender || 'Unknown Sender';
+
+      topRow.appendChild(badge);
+      topRow.appendChild(senderEl);
+
+      const metaRow = document.createElement('div');
+      metaRow.style.cssText = 'font-size:11px;color:#8b949e;margin-top:4px;';
+      metaRow.textContent = `${item.date || ''} • Category: ${item.category || (isEarn ? 'Salary' : 'Other Expense')} • TrxID: ${item.trxId || 'N/A'}`;
+
+      const rawEl = document.createElement('div');
+      rawEl.style.cssText = 'font-size:10px;color:#6e7681;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      // Secure textContent rendering for unverified SMS body
+      rawEl.textContent = `"${item.rawBody || ''}"`;
+
+      leftCol.appendChild(topRow);
+      leftCol.appendChild(metaRow);
+      leftCol.appendChild(rawEl);
+
+      // Right Column
+      const rightCol = document.createElement('div');
+      rightCol.style.cssText = 'text-align:right;';
+
+      const amountEl = document.createElement('div');
+      amountEl.style.cssText = `font-size:15px;font-weight:bold;color:${isEarn ? '#34d399' : '#f87171'};`;
+      amountEl.textContent = `${isEarn ? '+' : '-'}${formatMoney(item.amount)}`;
+
+      const actionsRow = document.createElement('div');
+      actionsRow.style.cssText = 'display:flex;gap:6px;margin-top:8px;';
+
+      const rejectBtn = document.createElement('button');
+      rejectBtn.className = 'pill-btn danger-btn';
+      rejectBtn.style.cssText = 'padding:4px 8px;font-size:11px;';
+      rejectBtn.textContent = '✕';
+      rejectBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const trxId = btn.getAttribute('data-confirm');
-        console.log('Confirm clicked for TrxID:', trxId);
-        SmsSyncController.confirmTx(trxId);
+        SmsSyncController.rejectTx(item.trxId);
       });
-    });
 
-    this.pendingList.querySelectorAll('[data-reject]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'pill-btn primary-btn';
+      confirmBtn.style.cssText = 'padding:4px 10px;font-size:11px;';
+      confirmBtn.textContent = '✓ Add';
+      confirmBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const trxId = btn.getAttribute('data-reject');
-        console.log('Reject clicked for TrxID:', trxId);
-        SmsSyncController.rejectTx(trxId);
+        SmsSyncController.confirmTx(item.trxId);
       });
+
+      actionsRow.appendChild(rejectBtn);
+      actionsRow.appendChild(confirmBtn);
+
+      rightCol.appendChild(amountEl);
+      rightCol.appendChild(actionsRow);
+
+      itemCard.appendChild(leftCol);
+      itemCard.appendChild(rightCol);
+
+      this.pendingList.appendChild(itemCard);
     });
   },
 
