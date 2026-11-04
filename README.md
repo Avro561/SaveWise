@@ -57,22 +57,42 @@ A modern, 100% offline-first personal finance application, automated bank/wallet
 
 ### 7. 🚀 Optimized Signed Release Build
 - **R8 Code Minification & Resource Shrinking**: Release build size shrunk from ~6.9 MB to **1.36 MB**.
-- **ProGuard / R8 Rules**: Configured `proguard-rules.pro` to preserve all `@JavascriptInterface` bridge methods and biometric classes.
+- **ProGuard / R8 Rules**: Configured `proguard-rules.pro` to preserve all `@JavascriptInterface` bridge methods, biometric classes, and migration handlers.
 - **Isolated Keystore Credentials**: Release signing credentials loaded securely from `keystore.properties` (strictly git-ignored).
+
+### 8. 🔄 Missing Data Recovery & Dual Storage Modes (Zero Data Loss Guarantee)
+- **Automatic Migration Bridge**: When upgrading from previous WebView versions, an automated background bridge scans the legacy `file://` LevelDB partition on startup and safely merges all historical transactions, goals, and settings into the new secure partition without overwriting newer items.
+- **1-Tap Manual Data Recovery**: In **Settings &rarr; ⚠️ Missing Data Recovery**, users can tap **🔄 Recover Previous Data** anytime to re-scan and recover transactions.
+- **Native Legacy File Storage Mode**: Users can tap **⚙️ Switch Storage Mode** to reload SaveWise natively on the phone's original `file:///android_asset/` origin, instantly connecting to their pre-existing database.
 
 ---
 
-## 📲 Download & Installation on Your Android Phone
+## 📲 Direct APK Binaries For Your Phone
 
-The APK binaries are ready in your workspace:
+Both production and debug APKs are generated and located directly in your workspace:
 
-### 🌟 1. Production Signed Release APK (Recommended: 1.36 MB)
-- **Local File Path:** `D:\Apps\android\app\build\outputs\apk\release\app-release.apk`
+### 🌟 1. Production Signed Release APK (1.36 MB — Recommended)
+- **Direct Workspace Path:** `D:\Apps\SaveWise-release.apk`
+- **Build Output Path:** `D:\Apps\android\app\build\outputs\apk\release\app-release.apk`
 - Fully minified with R8, dead-code eliminated, resource-shrunk, and signed with release keystore.
 
-### 🛠️ 2. Development Debug APK (6.9 MB)
-- **Local File Path:** `D:\Apps\android\app\build\outputs\apk\debug\app-debug.apk`
+### 🛠️ 2. Development Debug APK (7.7 MB)
+- **Direct Workspace Path:** `D:\Apps\SaveWise-debug.apk`
+- **Build Output Path:** `D:\Apps\android\app\build\outputs\apk\debug\app-debug.apk`
 - Includes live test suites and debugging logs.
+
+---
+
+### How to Install and Restore Your Previous Data:
+
+1. **Install Updated APK**:
+   Copy `SaveWise-release.apk` to your phone and install/update.
+2. **Automatic Data Recovery**:
+   On app launch, SaveWise automatically checks for legacy transactions from previous installs and restores them into your dashboard.
+3. **If You Ever Need Manual Recovery**:
+   Open **Settings (⚙️ icon top right)** &rarr; scroll to **⚠️ Missing Data Recovery**:
+   - Tap **🔄 Recover Previous Data** to pull your transactions into the new secure domain.
+   - Or tap **⚙️ Switch Storage Mode** to switch directly to your phone's original file storage mode with one tap.
 
 ---
 

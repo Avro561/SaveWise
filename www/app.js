@@ -310,6 +310,9 @@ function initDOM() {
   DOM.openApkGuideBtn = document.getElementById('openApkGuideBtn');
   DOM.trustedSendersInput = document.getElementById('trustedSendersInput');
   DOM.saveTrustedSendersBtn = document.getElementById('saveTrustedSendersBtn');
+  DOM.recoverLegacyDataBtn = document.getElementById('recoverLegacyDataBtn');
+  DOM.toggleLegacyModeBtn = document.getElementById('toggleLegacyModeBtn');
+  DOM.storageModeStatus = document.getElementById('storageModeStatus');
   DOM.backupDataBtn = document.getElementById('backupDataBtn');
   DOM.restoreFileInput = document.getElementById('restoreFileInput');
   DOM.loadSampleDataBtn = document.getElementById('loadSampleDataBtn');
@@ -1211,10 +1214,50 @@ function setupEventListeners() {
         DOM.trustedSendersInput.value = localStorage.getItem('savewise_trusted_senders') || 'bKash, NAGAD, Rocket, Upay, 16216, City Bank, BRAC Bank, EBL, DBBL, Islami Bank, SCB';
       }
     }
+    if (DOM.storageModeStatus) {
+      if (window.AndroidSms && typeof window.AndroidSms.isLegacyMode === 'function') {
+        const isLegacy = window.AndroidSms.isLegacyMode();
+        DOM.storageModeStatus.textContent = isLegacy
+          ? 'Mode: 📂 Legacy File Storage (Original phone database)'
+          : 'Mode: 🌐 Virtual Domain (https://)';
+        DOM.storageModeStatus.style.color = isLegacy ? '#fbbf24' : '#10b981';
+      } else {
+        DOM.storageModeStatus.textContent = 'Mode: Standard Web Storage';
+      }
+    }
     DOM.settingsModal.classList.add('active');
     SoundFX.play('tap');
   });
   DOM.closeSettingsModalBtn.addEventListener('click', () => DOM.settingsModal.classList.remove('active'));
+
+  if (DOM.recoverLegacyDataBtn) {
+    DOM.recoverLegacyDataBtn.addEventListener('click', () => {
+      if (window.AndroidSms && typeof window.AndroidSms.recoverLegacyData === 'function') {
+        window._manualRecoveryRequested = true;
+        showToast('Scanning previous file:// storage...');
+        window.AndroidSms.recoverLegacyData();
+      } else {
+        alert('Data recovery is available when running inside the Android app.');
+      }
+    });
+  }
+
+  if (DOM.toggleLegacyModeBtn) {
+    DOM.toggleLegacyModeBtn.addEventListener('click', () => {
+      if (window.AndroidSms && typeof window.AndroidSms.isLegacyMode === 'function') {
+        const current = window.AndroidSms.isLegacyMode();
+        const targetMode = !current;
+        const msg = targetMode
+          ? 'Switch to Legacy File Mode?\n\nThis will reload SaveWise using the original file:// storage where your previous transactions were stored.'
+          : 'Switch to Secure Virtual Domain Mode (https://)?';
+        if (confirm(msg)) {
+          window.AndroidSms.setLegacyMode(targetMode);
+        }
+      } else {
+        alert('Storage mode switching is available inside the Android app.');
+      }
+    });
+  }
 
   DOM.soundToggle.addEventListener('change', (e) => {
     state.soundEnabled = e.target.checked;
@@ -1776,4 +1819,124 @@ const SmsSyncController = {
     }
   }
 };
+
+// --- Legacy Data Migration & Recovery Listener ---
+window._manualRecoveryRequested = false;
+
+window.onLegacyDataRecovered = function(dataPayload) {
+  let dump = {};
+  if (typeof dataPayload === 'string') {
+    try {
+      dump = JSON.parse(dataPayload);
+    } catch (e) {
+      console.error('Failed to parse legacy dump:', e);
+      if (window._manualRecoveryRequested) {
+        alert('Could not parse legacy data. Please try "Switch Storage Mode" instead.');
+        window._manualRecoveryRequested = false;
+      }
+      return;
+    }
+  } else if (typeof dataPayload === 'object' && dataPayload !== null) {
+    dump = dataPayload;
+  }
+
+  const isManual = window._manualRecoveryRequested;
+  window._manualRecoveryRequested = false;
+
+  if (!dump || Object.keys(dump).length === 0) {
+    console.log('[Recovery] No legacy data found in file:// partition.');
+    if (isManual) {
+      alert('No previous transactions found in the file:// partition.\n\nTip: Click "⚙️ Switch Storage Mode" below to switch SaveWise directly to your phone\'s original file storage mode.');
+    }
+    return;
+  }
+
+  let restoredTxCount = 0;
+  let restoredGoalCount = 0;
+
+  // 1. Restore Transactions (check both savewise_transactions and transactions keys)
+  const txRaw = dump['savewise_transactions'] || dump['transactions'];
+  if (txRaw) {
+    try {
+      const oldTx = typeof txRaw === 'string' ? JSON.parse(txRaw) : txRaw;
+      if (Array.isArray(oldTx) && oldTx.length > 0) {
+        const existingIds = new Set(state.transactions.map(t => t.id));
+        let added = 0;
+        oldTx.forEach(t => {
+          if (!t) return;
+          // Ensure valid type
+          if (t.type === 'income' || t.type === 'credit') t.type = 'earn';
+          if (t.type === 'debit') t.type = 'cost';
+          t.date = normalizeTxDate(t.date);
+          const tId = t.id || ('tx_' + Math.random().toString(36).substr(2, 9));
+          t.id = tId;
+          if (!existingIds.has(tId)) {
+            state.transactions.push(t);
+            existingIds.add(tId);
+            added++;
+          }
+        });
+        // Sort newest first
+        state.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        restoredTxCount = added;
+      }
+    } catch (e) {
+      console.error('Error recovering legacy transactions:', e);
+    }
+  }
+
+  // 2. Restore Goals (check savewise_goals and goals keys)
+  const goalsRaw = dump['savewise_goals'] || dump['goals'];
+  if (goalsRaw) {
+    try {
+      const oldGoals = typeof goalsRaw === 'string' ? JSON.parse(goalsRaw) : goalsRaw;
+      if (Array.isArray(oldGoals) && oldGoals.length > 0) {
+        const existingGoalIds = new Set(state.goals.map(g => g.id));
+        oldGoals.forEach(g => {
+          if (g && g.id && !existingGoalIds.has(g.id)) {
+            state.goals.push(g);
+            existingGoalIds.add(g.id);
+            restoredGoalCount++;
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error recovering legacy goals:', e);
+    }
+  }
+
+  // 3. Restore Settings
+  const settingsRaw = dump['savewise_settings'] || dump['settings'];
+  if (settingsRaw) {
+    try {
+      const s = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw;
+      if (s) {
+        if (s.currency) state.currency = s.currency;
+        if (s.customDailyLimit) state.customDailyLimit = s.customDailyLimit;
+        if (s.theme) state.theme = s.theme;
+      }
+    } catch (e) {}
+  }
+
+  // Copy any other missing keys into current localStorage
+  for (const k in dump) {
+    if (k && !localStorage.getItem(k)) {
+      localStorage.setItem(k, dump[k]);
+    }
+  }
+
+  if (restoredTxCount > 0 || restoredGoalCount > 0) {
+    Storage.save();
+    renderAll();
+    SoundFX.play('success');
+    alert(`🎉 Great news!\n\nSuccessfully recovered:\n• ${restoredTxCount} transactions\n• ${restoredGoalCount} savings goals\n\nYour previous data is now safely restored!`);
+  } else if (txRaw) {
+    if (isManual) {
+      alert('Your previous data is already present and up to date in this app!');
+    }
+  } else if (isManual) {
+    alert('No previous transactions found in the file:// partition.\n\nTip: Click "⚙️ Switch Storage Mode" below to switch SaveWise directly to your phone\'s original file storage mode.');
+  }
+};
+
 

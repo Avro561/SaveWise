@@ -9,6 +9,10 @@
     public *;
 }
 
+-keep class com.savewise.app.MainActivity$LegacyMigrationReceiver {
+    public *;
+}
+
 # Keep Biometric and AndroidX Security Crypto components
 -keep class androidx.biometric.** { *; }
 -keep class androidx.security.crypto.** { *; }

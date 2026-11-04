@@ -94,4 +94,19 @@ public class SmsJsBridge {
     public boolean shareFile(String filename, String content, String mimeType) {
         return mActivity.shareExportFile(filename, content, mimeType);
     }
+
+    @JavascriptInterface
+    public void recoverLegacyData() {
+        mActivity.performLegacyDataMigration();
+    }
+
+    @JavascriptInterface
+    public boolean isLegacyMode() {
+        return mActivity.isUsingLegacyFileStorage();
+    }
+
+    @JavascriptInterface
+    public void setLegacyMode(boolean enabled) {
+        mActivity.setUseLegacyFileStorage(enabled);
+    }
 }

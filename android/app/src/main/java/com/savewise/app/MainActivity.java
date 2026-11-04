@@ -35,6 +35,8 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.webkit.WebViewAssetLoader;
 import java.io.ByteArrayInputStream;
 import java.util.concurrent.Executor;
+import org.json.JSONObject;
+import android.webkit.JavascriptInterface;
 
 public class MainActivity extends FragmentActivity {
 
@@ -92,8 +94,20 @@ public class MainActivity extends FragmentActivity {
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
-        webSettings.setAllowFileAccess(false);
-        webSettings.setAllowContentAccess(false);
+
+        boolean useLegacyStorage = isUsingLegacyFileStorage();
+        if (useLegacyStorage) {
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                webSettings.setAllowFileAccessFromFileURLs(true);
+                webSettings.setAllowUniversalAccessFromFileURLs(true);
+            }
+        } else {
+            webSettings.setAllowFileAccess(false);
+            webSettings.setAllowContentAccess(false);
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         }
@@ -119,13 +133,16 @@ public class MainActivity extends FragmentActivity {
                 if ("appassets.androidplatform.net".equals(url.getHost())) {
                     return assetLoader.shouldInterceptRequest(url);
                 }
+                if (isUsingLegacyFileStorage() && "file".equals(url.getScheme())) {
+                    return null; // Allow local file loading when in legacy mode
+                }
                 return new WebResourceResponse("text/plain", "UTF-8", new ByteArrayInputStream(new byte[0]));
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("appassets.androidplatform.net".equals(uri.getHost())) {
+                if ("appassets.androidplatform.net".equals(uri.getHost()) || (isUsingLegacyFileStorage() && "file".equals(uri.getScheme()))) {
                     return false;
                 }
                 return true;
@@ -173,7 +190,13 @@ public class MainActivity extends FragmentActivity {
         }
 
         // Load offline web bundle
-        mWebView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+        if (useLegacyStorage) {
+            mWebView.loadUrl("file:///android_asset/index.html");
+        } else {
+            mWebView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+            // Automatically attempt legacy data migration from file:// origin into virtual domain
+            mWebView.postDelayed(this::performLegacyDataMigration, 1200);
+        }
 
         // Check lock state on cold start
         if (isAppLockEnabled()) {
@@ -423,6 +446,75 @@ public class MainActivity extends FragmentActivity {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private static final String KEY_USE_LEGACY_FILE = "savewise_use_legacy_file_origin";
+
+    public boolean isUsingLegacyFileStorage() {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        return prefs.getBoolean(KEY_USE_LEGACY_FILE, false);
+    }
+
+    public void setUseLegacyFileStorage(boolean useLegacy) {
+        SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_USE_LEGACY_FILE, useLegacy).apply();
+        runOnUiThread(() -> {
+            Intent intent = getIntent();
+            finish();
+            startActivity(intent);
+        });
+    }
+
+    public void performLegacyDataMigration() {
+        runOnUiThread(() -> {
+            try {
+                final WebView migrator = new WebView(this);
+                WebSettings ws = migrator.getSettings();
+                ws.setJavaScriptEnabled(true);
+                ws.setDomStorageEnabled(true);
+                ws.setDatabaseEnabled(true);
+                ws.setAllowFileAccess(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    ws.setAllowFileAccessFromFileURLs(true);
+                    ws.setAllowUniversalAccessFromFileURLs(true);
+                }
+
+                migrator.addJavascriptInterface(new LegacyMigrationReceiver(this, migrator), "LegacyMigrationBridge");
+                migrator.loadUrl("file:///android_asset/migrate.html");
+            } catch (Exception e) {
+                android.util.Log.e("SaveWise", "Migration helper failed", e);
+            }
+        });
+    }
+
+    public static class LegacyMigrationReceiver {
+        private final MainActivity mActivity;
+        private final WebView mMigrator;
+
+        public LegacyMigrationReceiver(MainActivity activity, WebView migrator) {
+            mActivity = activity;
+            mMigrator = migrator;
+        }
+
+        @JavascriptInterface
+        public void onLegacyData(String dataJson) {
+            mActivity.runOnUiThread(() -> {
+                try {
+                    if (dataJson != null && !dataJson.isEmpty()) {
+                        String js = "if (window.onLegacyDataRecovered) { window.onLegacyDataRecovered(" + JSONObject.quote(dataJson) + "); }";
+                        if (mActivity.mWebView != null) {
+                            mActivity.mWebView.evaluateJavascript(js, null);
+                        }
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("SaveWise", "Error applying legacy data", e);
+                } finally {
+                    try {
+                        mMigrator.destroy();
+                    } catch (Exception ignored) {}
+                }
+            });
         }
     }
 
