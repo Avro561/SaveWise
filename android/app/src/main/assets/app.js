@@ -852,12 +852,100 @@ function deleteGoal(id) {
   }
 }
 
-// --- CSV Export & JSON Backup ---
+// --- Secure Crypto Helpers (PBKDF2 + AES-GCM) ---
+async function deriveEncryptionKey(password, salt, iterations = 100000) {
+  const enc = new TextEncoder();
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return window.crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+function bufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function base64ToBuffer(base64) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function encryptDataWithPassword(plainText, password) {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const iterations = 100000;
+  const key = await deriveEncryptionKey(password, salt, iterations);
+  const encodedText = new TextEncoder().encode(plainText);
+  const cipherBuffer = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    encodedText
+  );
+  return {
+    app: 'SaveWise',
+    version: '2.0',
+    encrypted: true,
+    algorithm: 'PBKDF2-AES-GCM',
+    iterations: iterations,
+    salt: bufferToBase64(salt),
+    iv: bufferToBase64(iv),
+    ciphertext: bufferToBase64(cipherBuffer)
+  };
+}
+
+async function decryptDataWithPassword(encryptedEnvelope, password) {
+  const salt = base64ToBuffer(encryptedEnvelope.salt);
+  const iv = base64ToBuffer(encryptedEnvelope.iv);
+  const cipherBytes = base64ToBuffer(encryptedEnvelope.ciphertext);
+  const iterations = encryptedEnvelope.iterations || 100000;
+  const key = await deriveEncryptionKey(password, salt, iterations);
+  const decryptedBuffer = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    key,
+    cipherBytes
+  );
+  return new TextDecoder().decode(decryptedBuffer);
+}
+
+// --- CSV Export & Secure JSON Backup ---
 function exportToCSV() {
   if (state.transactions.length === 0) {
     showToast('No transactions to export.');
     return;
   }
+
+  // Pre-export warning dialog (Phase 6 requirement)
+  const proceed = confirm(
+    '⚠️ Security Warning:\n\n' +
+    'CSV exports are unencrypted and contain your full transaction details.\n' +
+    'Make sure to store and share this file securely.\n\n' +
+    'Do you want to proceed with CSV export?'
+  );
+  if (!proceed) return;
 
   const headers = ['Date', 'Type', 'Category', 'Description', 'Amount', 'PaymentMethod'];
   const rows = state.transactions.map(t => [
@@ -869,21 +957,32 @@ function exportToCSV() {
     `"${(t.paymentMethod || '').replace(/"/g, '""')}"`
   ]);
 
-  const csvContent = 'data:text/csv;charset=utf-8,' +
-    [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const encodedUri = encodeURI(csvContent);
+  const csvRaw = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const filename = `SaveWise_Export_${new Date().toISOString().split('T')[0]}.csv`;
+
+  // Explicit share action via Android bridge if running in app
+  if (window.AndroidSms && typeof window.AndroidSms.shareFile === 'function') {
+    const shared = window.AndroidSms.shareFile(filename, csvRaw, 'text/csv');
+    if (shared) {
+      showToast('CSV export ready to save or share!');
+      return;
+    }
+  }
+
+  // Browser download fallback
+  const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + csvRaw);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `SaveWise_Export_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   showToast('Exported CSV successfully!');
 }
 
-function backupToJSON() {
+async function backupToJSON() {
   const data = {
-    version: '1.0',
+    version: '2.0',
     exportDate: new Date().toISOString(),
     settings: {
       currency: state.currency,
@@ -895,40 +994,108 @@ function backupToJSON() {
     goals: state.goals
   };
 
-  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
+  const plainJson = JSON.stringify(data, null, 2);
+  const password = prompt(
+    '🔒 Secure Backup (AES-256 GCM):\n\n' +
+    'Enter a master password to encrypt your financial data.\n' +
+    '(Leave blank to cancel backup)'
+  );
+
+  if (password === null) return; // User cancelled
+
+  let finalContent = '';
+  const dateStr = new Date().toISOString().split('T')[0];
+  let filename = `SaveWise_Backup_${dateStr}.json`;
+
+  if (password.trim().length > 0) {
+    try {
+      showToast('Encrypting backup...');
+      const encryptedEnvelope = await encryptDataWithPassword(plainJson, password.trim());
+      finalContent = JSON.stringify(encryptedEnvelope, null, 2);
+      filename = `SaveWise_Encrypted_Backup_${dateStr}.json`;
+    } catch (err) {
+      alert('Encryption failed: ' + (err.message || err));
+      return;
+    }
+  } else {
+    const unencryptedOk = confirm('Create an unencrypted backup? It is recommended to use password encryption.');
+    if (!unencryptedOk) return;
+    finalContent = plainJson;
+  }
+
+  // Explicit share action via Android bridge
+  if (window.AndroidSms && typeof window.AndroidSms.shareFile === 'function') {
+    const shared = window.AndroidSms.shareFile(filename, finalContent, 'application/json');
+    if (shared) {
+      showToast('Encrypted backup ready to save or share!');
+      return;
+    }
+  }
+
+  // Browser download fallback
+  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(finalContent);
   const link = document.createElement('a');
   link.setAttribute('href', dataStr);
-  link.setAttribute('download', `SaveWise_Backup_${new Date().toISOString().split('T')[0]}.json`);
+  link.setAttribute('download', filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  showToast('Backup JSON downloaded!');
+  showToast('Backup downloaded successfully!');
 }
 
-function restoreFromJSON(e) {
+async function restoreFromJSON(e) {
   const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = (event) => {
+  reader.onload = async (event) => {
     try {
-      const data = JSON.parse(event.target.result);
-      if (Array.isArray(data.transactions)) {
-        state.transactions = data.transactions;
+      let rawText = event.target.result;
+      let parsed = JSON.parse(rawText);
+
+      // Check if file is encrypted (Phase 6 envelope)
+      if (parsed.encrypted === true && parsed.ciphertext && parsed.salt && parsed.iv) {
+        const password = prompt(
+          '🔐 Encrypted Backup Detected:\n\n' +
+          'This backup is protected with AES-256 GCM encryption.\n' +
+          'Enter the backup password to decrypt:'
+        );
+
+        if (!password) {
+          showToast('Restore cancelled.');
+          e.target.value = '';
+          return;
+        }
+
+        try {
+          rawText = await decryptDataWithPassword(parsed, password.trim());
+          parsed = JSON.parse(rawText);
+        } catch (decryptErr) {
+          alert('❌ Decryption failed: Incorrect password or corrupted backup file.');
+          e.target.value = '';
+          return;
+        }
       }
-      if (Array.isArray(data.goals)) {
-        state.goals = data.goals;
+
+      if (Array.isArray(parsed.transactions)) {
+        state.transactions = parsed.transactions;
       }
-      if (data.settings) {
-        state.currency = data.settings.currency || state.currency;
-        state.customDailyLimit = data.settings.customDailyLimit || state.customDailyLimit;
+      if (Array.isArray(parsed.goals)) {
+        state.goals = parsed.goals;
+      }
+      if (parsed.settings) {
+        state.currency = parsed.settings.currency || state.currency;
+        state.customDailyLimit = parsed.settings.customDailyLimit || state.customDailyLimit;
       }
       Storage.save();
+      SoundFX.play('success');
       showToast('Data restored successfully!');
       renderAll();
       DOM.settingsModal.classList.remove('active');
     } catch (err) {
-      alert('Invalid JSON file format.');
+      alert('❌ Invalid JSON file format: ' + (err.message || 'Corrupted file'));
+    } finally {
+      e.target.value = '';
     }
   };
   reader.readAsText(file);

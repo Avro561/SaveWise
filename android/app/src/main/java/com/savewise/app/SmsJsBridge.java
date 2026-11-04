@@ -89,4 +89,9 @@ public class SmsJsBridge {
     public void triggerLockPrompt() {
         mActivity.runOnUiThread(() -> mActivity.showBiometricPrompt(false));
     }
+
+    @JavascriptInterface
+    public boolean shareFile(String filename, String content, String mimeType) {
+        return mActivity.shareExportFile(filename, content, mimeType);
+    }
 }

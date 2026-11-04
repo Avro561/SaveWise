@@ -395,6 +395,37 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
+    public boolean shareExportFile(String filename, String content, String mimeType) {
+        try {
+            java.io.File exportDir = new java.io.File(getCacheDir(), "exports");
+            if (!exportDir.exists()) {
+                exportDir.mkdirs();
+            }
+            java.io.File file = new java.io.File(exportDir, filename);
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(file);
+            fos.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            fos.flush();
+            fos.close();
+
+            android.net.Uri contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    this, "com.savewise.app.fileprovider", file
+            );
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType);
+            shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, filename);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            Intent chooser = Intent.createChooser(shareIntent, "Save or Share " + filename);
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(chooser);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public void openBatteryOptimizationSettings() {
         try {
             Intent intent = new Intent();

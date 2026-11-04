@@ -23,3 +23,9 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Keystore & Signing secrets
+keystore.properties
+*.jks
+*.keystore
+
