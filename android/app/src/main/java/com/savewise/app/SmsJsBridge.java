@@ -1,6 +1,5 @@
 package com.savewise.app;
 
-import android.content.Context;
 import android.webkit.JavascriptInterface;
 
 public class SmsJsBridge {
@@ -17,6 +16,11 @@ public class SmsJsBridge {
     }
 
     @JavascriptInterface
+    public void markAsProcessed(String trxId) {
+        SmsQueue.removeTransaction(mActivity, trxId);
+    }
+
+    @JavascriptInterface
     public void removePendingTransaction(String trxId) {
         SmsQueue.removeTransaction(mActivity, trxId);
     }
@@ -24,6 +28,26 @@ public class SmsJsBridge {
     @JavascriptInterface
     public void clearPendingTransactions() {
         SmsQueue.clearPending(mActivity);
+    }
+
+    @JavascriptInterface
+    public String getTrustedSenders() {
+        return SmsQueue.getTrustedSenders(mActivity);
+    }
+
+    @JavascriptInterface
+    public void setTrustedSenders(String senders) {
+        SmsQueue.setTrustedSenders(mActivity, senders);
+    }
+
+    @JavascriptInterface
+    public String getUnparsedSms() {
+        return SmsQueue.getUnparsedSms(mActivity);
+    }
+
+    @JavascriptInterface
+    public void clearUnparsedSms() {
+        SmsQueue.clearUnparsedSms(mActivity);
     }
 
     @JavascriptInterface

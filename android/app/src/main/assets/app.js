@@ -308,6 +308,8 @@ function initDOM() {
   DOM.soundToggle = document.getElementById('soundToggle');
   DOM.appLockToggle = document.getElementById('appLockToggle');
   DOM.openApkGuideBtn = document.getElementById('openApkGuideBtn');
+  DOM.trustedSendersInput = document.getElementById('trustedSendersInput');
+  DOM.saveTrustedSendersBtn = document.getElementById('saveTrustedSendersBtn');
   DOM.backupDataBtn = document.getElementById('backupDataBtn');
   DOM.restoreFileInput = document.getElementById('restoreFileInput');
   DOM.loadSampleDataBtn = document.getElementById('loadSampleDataBtn');
@@ -1035,6 +1037,13 @@ function setupEventListeners() {
         DOM.appLockToggle.checked = localStorage.getItem('savewise_app_lock') === 'true';
       }
     }
+    if (DOM.trustedSendersInput) {
+      if (window.AndroidSms && typeof window.AndroidSms.getTrustedSenders === 'function') {
+        DOM.trustedSendersInput.value = window.AndroidSms.getTrustedSenders();
+      } else {
+        DOM.trustedSendersInput.value = localStorage.getItem('savewise_trusted_senders') || 'bKash, NAGAD, Rocket, Upay, 16216, City Bank, BRAC Bank, EBL, DBBL, Islami Bank, SCB';
+      }
+    }
     DOM.settingsModal.classList.add('active');
     SoundFX.play('tap');
   });
@@ -1044,6 +1053,17 @@ function setupEventListeners() {
     state.soundEnabled = e.target.checked;
     Storage.save();
   });
+
+  if (DOM.saveTrustedSendersBtn && DOM.trustedSendersInput) {
+    DOM.saveTrustedSendersBtn.addEventListener('click', () => {
+      const val = DOM.trustedSendersInput.value.trim();
+      localStorage.setItem('savewise_trusted_senders', val);
+      if (window.AndroidSms && typeof window.AndroidSms.setTrustedSenders === 'function') {
+        window.AndroidSms.setTrustedSenders(val);
+      }
+      showToast('Trusted senders updated!');
+    });
+  }
 
   if (DOM.appLockToggle) {
     DOM.appLockToggle.addEventListener('change', (e) => {
@@ -1364,6 +1384,16 @@ const SmsSyncController = {
         showToast('SMS Permission was denied.');
       }
     };
+
+    // Automatic queue check on app return from background / tab focus
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.syncPending();
+      }
+    });
+    window.addEventListener('focus', () => {
+      this.syncPending();
+    });
   },
 
   checkFirstLaunchPermission() {
@@ -1568,7 +1598,11 @@ const SmsSyncController = {
 
   removePending(trxId) {
     if (window.AndroidSms) {
-      window.AndroidSms.removePendingTransaction(trxId);
+      if (typeof window.AndroidSms.markAsProcessed === 'function') {
+        window.AndroidSms.markAsProcessed(trxId);
+      } else {
+        window.AndroidSms.removePendingTransaction(trxId);
+      }
     } else {
       const list = this.getPendingList().filter(x => x.trxId !== trxId);
       localStorage.setItem('savewise_demo_sms_queue', JSON.stringify(list));

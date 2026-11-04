@@ -4,16 +4,13 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.util.Log;
 import org.json.JSONObject;
 
 public class SmsScanner {
 
-    private static final String TAG = "SaveWiseSmsScanner";
-
     /**
-     * Scans the SMS inbox for messages from trusted senders received since the last sync time.
-     * @return Number of new transactions queued.
+     * Scans the SMS inbox for messages from whitelisted senders received since the last sync time.
+     * @return Number of new transactions added to the encrypted queue.
      */
     public static int scanInbox(Context context) {
         long lastSync = SmsQueue.getLastSyncTime(context);
@@ -47,8 +44,8 @@ public class SmsScanner {
                         latestTimestamp = date;
                     }
 
-                    if (SmsParser.isTrustedSender(sender)) {
-                        JSONObject tx = SmsParser.parseMessage(sender, body, date);
+                    if (SmsParser.isTrustedSender(context, sender)) {
+                        JSONObject tx = SmsParser.parseMessage(context, sender, body, date);
                         if (tx != null) {
                             if (SmsQueue.addTransaction(context, tx)) {
                                 count++;
@@ -57,8 +54,8 @@ public class SmsScanner {
                     }
                 } while (cursor.moveToNext());
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error querying SMS inbox: " + e.getMessage());
+        } catch (Exception ignored) {
+            // Suppress logging of queries or errors that could reveal phone state
         }
 
         // Update the last sync timestamp

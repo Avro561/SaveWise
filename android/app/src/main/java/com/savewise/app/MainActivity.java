@@ -43,6 +43,12 @@ public class MainActivity extends FragmentActivity {
     private static final String KEY_APP_LOCK_ENABLED = "app_lock_enabled";
     private static final long LOCK_TIMEOUT_MS = 30_000L; // 30s background lock timeout
 
+    private static MainActivity sInstance;
+
+    public static MainActivity getInstance() {
+        return sInstance;
+    }
+
     private WebView mWebView;
     private LinearLayout mLockOverlay;
     private boolean mIsUnlocked = false;
@@ -51,6 +57,7 @@ public class MainActivity extends FragmentActivity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        sInstance = this;
         super.onCreate(savedInstanceState);
 
         // Configure system bars
@@ -145,9 +152,12 @@ public class MainActivity extends FragmentActivity {
         mWebView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
-                android.util.Log.d("SaveWiseJS", consoleMessage.message() + " -- From line "
-                        + consoleMessage.lineNumber() + " of "
-                        + consoleMessage.sourceId());
+                boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+                if (isDebuggable) {
+                    android.util.Log.d("SaveWiseJS", consoleMessage.message() + " -- From line "
+                            + consoleMessage.lineNumber() + " of "
+                            + consoleMessage.sourceId());
+                }
                 return true;
             }
         });
@@ -402,6 +412,22 @@ public class MainActivity extends FragmentActivity {
                 startActivity(fallback);
             } catch (Exception ignored) {}
         }
+    }
+
+    public void notifyNewSmsQueued() {
+        runOnUiThread(() -> {
+            if (mWebView != null) {
+                mWebView.evaluateJavascript("if (window.onNewSmsQueued) window.onNewSmsQueued();", null);
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (sInstance == this) {
+            sInstance = null;
+        }
+        super.onDestroy();
     }
 
     @Override
