@@ -306,6 +306,7 @@ function initDOM() {
   DOM.settingsModal = document.getElementById('settingsModal');
   DOM.closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
   DOM.soundToggle = document.getElementById('soundToggle');
+  DOM.appLockToggle = document.getElementById('appLockToggle');
   DOM.openApkGuideBtn = document.getElementById('openApkGuideBtn');
   DOM.backupDataBtn = document.getElementById('backupDataBtn');
   DOM.restoreFileInput = document.getElementById('restoreFileInput');
@@ -1027,6 +1028,13 @@ function setupEventListeners() {
   // Settings Modal
   DOM.settingsBtn.addEventListener('click', () => {
     DOM.soundToggle.checked = state.soundEnabled;
+    if (DOM.appLockToggle) {
+      if (window.AndroidSms && typeof window.AndroidSms.isAppLockEnabled === 'function') {
+        DOM.appLockToggle.checked = window.AndroidSms.isAppLockEnabled();
+      } else {
+        DOM.appLockToggle.checked = localStorage.getItem('savewise_app_lock') === 'true';
+      }
+    }
     DOM.settingsModal.classList.add('active');
     SoundFX.play('tap');
   });
@@ -1036,6 +1044,17 @@ function setupEventListeners() {
     state.soundEnabled = e.target.checked;
     Storage.save();
   });
+
+  if (DOM.appLockToggle) {
+    DOM.appLockToggle.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      localStorage.setItem('savewise_app_lock', enabled ? 'true' : 'false');
+      if (window.AndroidSms && typeof window.AndroidSms.setAppLockEnabled === 'function') {
+        window.AndroidSms.setAppLockEnabled(enabled);
+      }
+      showToast(enabled ? '🛡️ App Lock & Screen Protection enabled!' : 'App Lock disabled.');
+    });
+  }
 
   DOM.openApkGuideBtn.addEventListener('click', () => {
     DOM.settingsModal.classList.remove('active');

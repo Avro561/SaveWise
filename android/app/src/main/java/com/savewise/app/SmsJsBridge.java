@@ -45,4 +45,24 @@ public class SmsJsBridge {
     public void openBatterySettings() {
         mActivity.openBatteryOptimizationSettings();
     }
+
+    @JavascriptInterface
+    public boolean isAppLockEnabled() {
+        return mActivity.isAppLockEnabled();
+    }
+
+    @JavascriptInterface
+    public void setAppLockEnabled(boolean enabled) {
+        mActivity.setAppLockEnabled(enabled);
+    }
+
+    @JavascriptInterface
+    public boolean isBiometricAvailable() {
+        return mActivity.isBiometricAvailable();
+    }
+
+    @JavascriptInterface
+    public void triggerLockPrompt() {
+        mActivity.runOnUiThread(() -> mActivity.showBiometricPrompt(false));
+    }
 }
