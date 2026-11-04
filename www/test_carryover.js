@@ -1,14 +1,13 @@
 /**
  * Test Suite for Phase 1: Carry-Over & Historical Calculation
  * Tests:
- * 1. Month boundary (transactions right on boundary, before, and after)
- * 2. Edited/deleted old transaction reflects in opening balance dynamically
- * 3. Empty history (opening balance = 0, month savings = 0)
+ * 1. Empty history (opening balance = 0, month savings = 0)
+ * 2. Month boundary (transactions right on boundary, before, and after)
+ * 3. Edited/deleted old transaction reflects in opening balance dynamically
  * 4. Negative opening balance (expenses exceeded income in prior months)
  * 5. Multi-month carry-over across past months
  */
 
-// Simple lightweight assertion runner
 function runTests() {
   const results = [];
   function assert(condition, message) {
@@ -31,13 +30,13 @@ function runTests() {
   {
     const txs = [
       // Prior month: September 2026
-      { id: '1', type: 'earn', amount: 1000, date: '2026-09-15T12:00:00Z', category: 'Salary' },
-      { id: '2', type: 'cost', amount: 400, date: '2026-09-30T23:59:59Z', category: 'Groceries' }, // Right before boundary
+      { id: '1', type: 'earn', amount: 1000, date: new Date(2026, 8, 15, 12, 0, 0).toISOString(), category: 'Salary' },
+      { id: '2', type: 'cost', amount: 400, date: new Date(2026, 8, 30, 23, 59, 59, 999).toISOString(), category: 'Groceries' }, // Right before boundary
       // Selected month: October 2026
-      { id: '3', type: 'earn', amount: 1200, date: '2026-10-01T00:00:01Z', category: 'Salary' }, // Right after boundary
-      { id: '4', type: 'cost', amount: 500, date: '2026-10-15T12:00:00Z', category: 'Housing & Rent' },
+      { id: '3', type: 'earn', amount: 1200, date: new Date(2026, 9, 1, 0, 0, 1).toISOString(), category: 'Salary' }, // Right after boundary
+      { id: '4', type: 'cost', amount: 500, date: new Date(2026, 9, 15, 12, 0, 0).toISOString(), category: 'Housing & Rent' },
       // Future month: November 2026
-      { id: '5', type: 'earn', amount: 2000, date: '2026-11-05T12:00:00Z', category: 'Salary' }
+      { id: '5', type: 'earn', amount: 2000, date: new Date(2026, 10, 5, 12, 0, 0).toISOString(), category: 'Salary' }
     ];
 
     const oct = AdvisoryEngine.analyze(txs, '$', 25, 2026, 9); // Month index 9 = October
@@ -54,9 +53,9 @@ function runTests() {
   // --- Test 3: Edited or deleted old transaction updates opening balance dynamically without stored state ---
   {
     const initialTxs = [
-      { id: '1', type: 'earn', amount: 1000, date: '2026-08-10T10:00:00Z', category: 'Salary' },
-      { id: '2', type: 'cost', amount: 200, date: '2026-08-20T10:00:00Z', category: 'Dining Out' },
-      { id: '3', type: 'earn', amount: 500, date: '2026-09-01T10:00:00Z', category: 'Salary' }
+      { id: '1', type: 'earn', amount: 1000, date: new Date(2026, 7, 10, 10, 0, 0).toISOString(), category: 'Salary' },
+      { id: '2', type: 'cost', amount: 200, date: new Date(2026, 7, 20, 10, 0, 0).toISOString(), category: 'Dining Out' },
+      { id: '3', type: 'earn', amount: 500, date: new Date(2026, 8, 1, 10, 0, 0).toISOString(), category: 'Salary' }
     ];
 
     let sep = AdvisoryEngine.analyze(initialTxs, '$', 25, 2026, 8); // September 2026
@@ -77,11 +76,11 @@ function runTests() {
   // --- Test 4: Negative opening balance (prior deficit) ---
   {
     const deficitTxs = [
-      { id: '1', type: 'earn', amount: 500, date: '2026-08-10T10:00:00Z', category: 'Salary' },
-      { id: '2', type: 'cost', amount: 900, date: '2026-08-20T10:00:00Z', category: 'Housing & Rent' },
+      { id: '1', type: 'earn', amount: 500, date: new Date(2026, 7, 10, 10, 0, 0).toISOString(), category: 'Salary' },
+      { id: '2', type: 'cost', amount: 900, date: new Date(2026, 7, 20, 10, 0, 0).toISOString(), category: 'Housing & Rent' },
       // September: Earn 1000, Spend 300
-      { id: '3', type: 'earn', amount: 1000, date: '2026-09-05T10:00:00Z', category: 'Salary' },
-      { id: '4', type: 'cost', amount: 300, date: '2026-09-12T10:00:00Z', category: 'Groceries' }
+      { id: '3', type: 'earn', amount: 1000, date: new Date(2026, 8, 5, 10, 0, 0).toISOString(), category: 'Salary' },
+      { id: '4', type: 'cost', amount: 300, date: new Date(2026, 8, 12, 10, 0, 0).toISOString(), category: 'Groceries' }
     ];
 
     const sep = AdvisoryEngine.analyze(deficitTxs, '$', 25, 2026, 8); // Sep 2026
@@ -96,10 +95,10 @@ function runTests() {
   // --- Test 5: Historical past month view ---
   {
     const txs = [
-      { id: '1', type: 'earn', amount: 1000, date: '2026-01-10T10:00:00Z', category: 'Salary' },
-      { id: '2', type: 'cost', amount: 300, date: '2026-01-20T10:00:00Z', category: 'Groceries' },
-      { id: '3', type: 'earn', amount: 1200, date: '2026-02-10T10:00:00Z', category: 'Salary' },
-      { id: '4', type: 'cost', amount: 400, date: '2026-02-20T10:00:00Z', category: 'Groceries' }
+      { id: '1', type: 'earn', amount: 1000, date: new Date(2026, 0, 10, 10, 0, 0).toISOString(), category: 'Salary' },
+      { id: '2', type: 'cost', amount: 300, date: new Date(2026, 0, 20, 10, 0, 0).toISOString(), category: 'Groceries' },
+      { id: '3', type: 'earn', amount: 1200, date: new Date(2026, 1, 10, 10, 0, 0).toISOString(), category: 'Salary' },
+      { id: '4', type: 'cost', amount: 400, date: new Date(2026, 1, 20, 10, 0, 0).toISOString(), category: 'Groceries' }
     ];
 
     // Check January 2026: opening = 0, available = 700

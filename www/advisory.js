@@ -186,50 +186,6 @@ const AdvisoryEngine = {
       suggestions
     };
   },
-      needsTotal,
-      wantsTotal,
-      needsPct,
-      wantsPct,
-      actualSavingsPct,
-      categoryTotals,
-      smallExpenses,
-      dailyBurnRate,
-      dailyLimit,
-      todaySpent,
-      todayRemaining,
-      projectedMonthExpense,
-      projectedMonthSavings,
-      daysRemaining,
-      currentDay
-    });
-
-    return {
-      monthOverview: {
-        totalEarn,
-        totalExpense,
-        netSavings,
-        savingsRate: parseFloat(savingsRate),
-        needsTotal,
-        wantsTotal,
-        needsPct: parseFloat(needsPct.toFixed(1)),
-        wantsPct: parseFloat(wantsPct.toFixed(1)),
-        actualSavingsPct: parseFloat(actualSavingsPct.toFixed(1))
-      },
-      dailyOverview: {
-        todaySpent,
-        todayEarned,
-        dailyLimit: parseFloat(dailyLimit.toFixed(2)),
-        todayRemaining: parseFloat(todayRemaining.toFixed(2)),
-        isExceeded: todaySpent > dailyLimit,
-        dailyBurnRate: parseFloat(dailyBurnRate.toFixed(2)),
-        projectedMonthExpense: parseFloat(projectedMonthExpense.toFixed(2)),
-        projectedMonthSavings: parseFloat(projectedMonthSavings.toFixed(2))
-      },
-      categoryBreakdown: categoryTotals,
-      smallExpensesCount: smallExpenses.length,
-      suggestions
-    };
-  },
 
   /**
    * Generates prioritized, highly personalized financial advice
