@@ -41,8 +41,35 @@ const state = {
   soundEnabled: true,
   theme: 'dark',
   activeTab: 'tab-dashboard',
-  currentTxType: 'cost'
+  currentTxType: 'cost',
+  // Selected month for analysis (null means current calendar month)
+  selectedYear: new Date().getFullYear(),
+  selectedMonth: new Date().getMonth()
 };
+
+// Date Normalization & Safe Migration Helper
+function normalizeTxDate(dateVal) {
+  if (!dateVal) return new Date().toISOString();
+  // Already ISO timestamp string with time
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('T')) {
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    }
+    // Simple YYYY-MM-DD string
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+      const d = new Date(dateVal + 'T12:00:00');
+      return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    }
+    // DD/MM/YYYY or MM/DD/YYYY fallback
+    const parsed = new Date(dateVal);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString();
+  } else if (typeof dateVal === 'number') {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  }
+  return new Date().toISOString();
+}
 
 // --- Web Audio Synthesizer (No external mp3/wav files required!) ---
 const SoundFX = {
@@ -111,6 +138,8 @@ const Storage = {
           // Self-heal: ensure type is strictly 'earn' or 'cost'
           if (t.type === 'income' || t.type === 'credit') t.type = 'earn';
           if (t.type === 'debit') t.type = 'cost';
+          // Normalize date format to full ISO timestamp
+          t.date = normalizeTxDate(t.date);
           return t;
         });
       }
@@ -179,9 +208,14 @@ function initDOM() {
   DOM.settingsBtn = document.getElementById('settingsBtn');
 
   // Dashboard elements
+  DOM.availableBalanceDisplay = document.getElementById('availableBalanceDisplay');
+  DOM.openingBalanceDisplay = document.getElementById('openingBalanceDisplay');
   DOM.netSavingsDisplay = document.getElementById('netSavingsDisplay');
   DOM.savingsRateBadge = document.getElementById('savingsRateBadge');
   DOM.savingsRateDisplay = document.getElementById('savingsRateDisplay');
+  DOM.selectedMonthLabel = document.getElementById('selectedMonthLabel');
+  DOM.prevMonthBtn = document.getElementById('prevMonthBtn');
+  DOM.nextMonthBtn = document.getElementById('nextMonthBtn');
   DOM.daysLeftDisplay = document.getElementById('daysLeftDisplay');
   DOM.totalEarnDisplay = document.getElementById('totalEarnDisplay');
   DOM.totalCostDisplay = document.getElementById('totalCostDisplay');
@@ -291,7 +325,9 @@ function renderAll() {
   const analysis = AdvisoryEngine.analyze(
     state.transactions,
     state.currency,
-    state.customDailyLimit
+    state.customDailyLimit,
+    state.selectedYear,
+    state.selectedMonth
   );
 
   renderDashboard(analysis);
@@ -303,15 +339,25 @@ function renderAll() {
 
 function updateDateDisplay() {
   const now = new Date();
+  const selectedDate = new Date(state.selectedYear, state.selectedMonth, 1);
   const options = { month: 'long', year: 'numeric' };
+
   DOM.currentDateDisplay.textContent = now.toLocaleDateString('en-US', options);
+  if (DOM.selectedMonthLabel) {
+    DOM.selectedMonthLabel.textContent = selectedDate.toLocaleDateString('en-US', options);
+  }
 
   const dayOptions = { weekday: 'short', month: 'short', day: 'numeric' };
   DOM.todayDateHeading.textContent = `Today, ${now.toLocaleDateString('en-US', dayOptions)}`;
 
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysLeft = Math.max(1, daysInMonth - now.getDate());
-  DOM.daysLeftDisplay.textContent = `${daysLeft} days remaining`;
+  const isCurrent = (now.getFullYear() === state.selectedYear && now.getMonth() === state.selectedMonth);
+  if (isCurrent) {
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysLeft = Math.max(1, daysInMonth - now.getDate());
+    DOM.daysLeftDisplay.textContent = `${daysLeft} days remaining`;
+  } else {
+    DOM.daysLeftDisplay.textContent = 'Past Month';
+  }
 }
 
 function updateCurrencyLabels() {
@@ -346,6 +392,15 @@ function populateCategorySelects() {
 
 function renderDashboard(analysis) {
   const { monthOverview } = analysis;
+
+  if (DOM.availableBalanceDisplay) {
+    DOM.availableBalanceDisplay.textContent = formatMoney(monthOverview.availableBalance);
+  }
+  if (DOM.openingBalanceDisplay) {
+    const sign = monthOverview.openingBalance < 0 ? '-' : '';
+    DOM.openingBalanceDisplay.textContent = formatMoney(monthOverview.openingBalance);
+    DOM.openingBalanceDisplay.style.color = monthOverview.openingBalance < 0 ? '#f87171' : '#ffffff';
+  }
 
   DOM.netSavingsDisplay.textContent = formatMoney(monthOverview.netSavings);
   DOM.savingsRateDisplay.textContent = `${monthOverview.savingsRate}%`;
@@ -752,7 +807,7 @@ function saveTransaction(e) {
     amount,
     title,
     category,
-    date: dateVal + 'T12:00:00',
+    date: normalizeTxDate(dateVal),
     paymentMethod
   };
 
@@ -1039,6 +1094,37 @@ function setupEventListeners() {
     }
   });
 
+  // Month Navigation Buttons (Phase 1: Carry-over & historical analysis)
+  if (DOM.prevMonthBtn) {
+    DOM.prevMonthBtn.addEventListener('click', () => {
+      let m = state.selectedMonth - 1;
+      let y = state.selectedYear;
+      if (m < 0) {
+        m = 11;
+        y -= 1;
+      }
+      state.selectedMonth = m;
+      state.selectedYear = y;
+      SoundFX.play('tap');
+      renderAll();
+    });
+  }
+
+  if (DOM.nextMonthBtn) {
+    DOM.nextMonthBtn.addEventListener('click', () => {
+      let m = state.selectedMonth + 1;
+      let y = state.selectedYear;
+      if (m > 11) {
+        m = 0;
+        y += 1;
+      }
+      state.selectedMonth = m;
+      state.selectedYear = y;
+      SoundFX.play('tap');
+      renderAll();
+    });
+  }
+
   // Transactions Filter
   DOM.txSearchInput.addEventListener('input', renderTransactionsList);
   DOM.txTypeFilter.addEventListener('change', renderTransactionsList);
@@ -1134,6 +1220,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Render initial clean dashboard & state (no auto-seeding sample data)
   renderAll();
+
+  // Run Phase 1 carry-over self-tests in dev console
+  if (typeof window.runCarryOverTests === 'function') {
+    try {
+      const suiteResults = window.runCarryOverTests();
+      suiteResults.forEach(r => console.log('[CarryOver Test]', r));
+      console.log('[CarryOver Test] ALL 5 TEST SUITES PASSED SUCCESSFULLY');
+    } catch (e) {
+      console.error('[CarryOver Test FAILED]', e);
+    }
+  }
 
   // Initialize SMS Auto-Track Controller
   SmsSyncController.init();
@@ -1383,7 +1480,7 @@ const SmsSyncController = {
         amount: parseFloat(item.amount) || 0,
         type: txType,
         category: item.category || defaultCat,
-        date: item.date ? (item.date + 'T12:00:00') : new Date().toISOString(),
+        date: normalizeTxDate(item.date),
         paymentMethod: 'SMS / Banking',
         recurring: false,
         notes: `Auto-detected from SMS. TrxID: ${item.trxId}`

@@ -56,12 +56,27 @@
       <section id="tab-dashboard" class="tab-pane active">
         <!-- Monthly Financial Cards -->
         <div class="balance-card">
-          <div class="balance-label">Total Net Savings this Month</div>
-          <div class="balance-amount" id="netSavingsDisplay">$0.00</div>
-          <div class="balance-meta">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="balance-label" style="margin-bottom:0;">Total Available Balance</div>
+            <!-- Month Selector -->
+            <div class="month-selector-wrap">
+              <button id="prevMonthBtn" class="month-nav-btn" title="Previous Month" aria-label="Previous Month">&lsaquo;</button>
+              <span id="selectedMonthLabel" class="selected-month-label">October 2026</span>
+              <button id="nextMonthBtn" class="month-nav-btn" title="Next Month" aria-label="Next Month">&rsaquo;</button>
+            </div>
+          </div>
+          <div class="balance-amount" id="availableBalanceDisplay">$0.00</div>
+
+          <!-- Opening Balance Breakdown Row -->
+          <div class="opening-balance-row">
+            <span class="opening-label">Opening Balance (Carried over):</span>
+            <strong class="opening-amount" id="openingBalanceDisplay">$0.00</strong>
+          </div>
+
+          <div class="balance-meta" style="margin-top:12px;">
             <span class="savings-badge" id="savingsRateBadge">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-              <span id="savingsRateDisplay">0%</span> Saved
+              <span id="savingsRateDisplay">0%</span> Month Savings (<span id="netSavingsDisplay">$0.00</span>)
             </span>
             <span class="days-left" id="daysLeftDisplay">30 days left</span>
           </div>
@@ -693,6 +708,7 @@
   </div>
 
   <script src="advisory.js"></script>
+  <script src="test_carryover.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

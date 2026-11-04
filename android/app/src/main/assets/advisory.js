@@ -26,27 +26,38 @@ const AdvisoryEngine = {
   },
 
   /**
-   * Run full financial analysis on a set of transactions and monthly income
+   * Run full financial analysis on a set of transactions and monthly income.
+   * Supports any selected month (via selectedYear and selectedMonth: 0-11).
+   * Computes opening balance (carry-over from all history before selected month),
+   * month income, month expense, and available balance.
    */
-  analyze(transactions, currencySymbol = '$', customDailyLimit = 0) {
+  analyze(transactions, currencySymbol = '$', customDailyLimit = 0, selectedYear = null, selectedMonth = null) {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentYear = selectedYear !== null && selectedYear !== undefined ? parseInt(selectedYear, 10) : now.getFullYear();
+    const currentMonth = selectedMonth !== null && selectedMonth !== undefined ? parseInt(selectedMonth, 10) : now.getMonth();
+
+    // Month boundaries (in local time)
+    const startOfSelectedMonth = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1, 0, 0, 0, 0);
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const currentDay = now.getDate();
-    const daysRemaining = Math.max(1, daysInMonth - currentDay);
 
-    // Filter transactions for current month
-    const thisMonthTx = transactions.filter(t => {
+    const isCurrentCalendarMonth = (now.getFullYear() === currentYear && now.getMonth() === currentMonth);
+    const currentDay = isCurrentCalendarMonth ? now.getDate() : daysInMonth;
+    const daysRemaining = isCurrentCalendarMonth ? Math.max(1, daysInMonth - currentDay) : 0;
+
+    // Helper to safely parse transaction date to Date object
+    const parseTxDate = (t) => {
+      if (!t || !t.date) return null;
+      if (typeof t.date === 'number') return new Date(t.date);
       const d = new Date(t.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
+      return isNaN(d.getTime()) ? null : d;
+    };
 
-    // Filter today's transactions
-    const todayStr = now.toISOString().split('T')[0];
-    const todayTx = transactions.filter(t => t.date.startsWith(todayStr));
+    // 1. Opening Balance: sum(income) - sum(expense) of all transactions BEFORE 1st of selected month
+    let openingIncome = 0;
+    let openingExpense = 0;
 
-    // Totals
+    // 2. Selected Month Totals
     let totalEarn = 0;
     let totalExpense = 0;
     let needsTotal = 0;
@@ -54,40 +65,57 @@ const AdvisoryEngine = {
     const categoryTotals = {};
     const smallExpenses = [];
 
-    thisMonthTx.forEach(t => {
-      const amount = parseFloat(t.amount) || 0;
-      if (t.type === 'earn') {
-        totalEarn += amount;
-      } else if (t.type === 'cost') {
-        totalExpense += amount;
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + amount;
+    // 3. Today's Totals (if current calendar month)
+    const todayStr = now.toISOString().split('T')[0];
+    let todaySpent = 0;
+    let todayEarned = 0;
 
-        const classification = this.categoryClassification[t.category] || 'want';
-        if (classification === 'need') {
-          needsTotal += amount;
-        } else {
-          wantsTotal += amount;
+    transactions.forEach(t => {
+      const d = parseTxDate(t);
+      if (!d) return;
+      const amount = parseFloat(t.amount) || 0;
+      const isEarn = (t.type === 'earn' || t.type === 'income' || t.type === 'credit');
+      const isCost = (t.type === 'cost' || t.type === 'debit');
+
+      if (d < startOfSelectedMonth) {
+        // Prior to selected month -> contributes to Opening Balance
+        if (isEarn) openingIncome += amount;
+        else if (isCost) openingExpense += amount;
+      } else if (d >= startOfSelectedMonth && d < startOfNextMonth) {
+        // Within selected month
+        if (isEarn) {
+          totalEarn += amount;
+        } else if (isCost) {
+          totalExpense += amount;
+          categoryTotals[t.category] = (categoryTotals[t.category] || 0) + amount;
+
+          const classification = this.categoryClassification[t.category] || 'want';
+          if (classification === 'need') {
+            needsTotal += amount;
+          } else {
+            wantsTotal += amount;
+          }
+
+          if (amount <= 5) {
+            smallExpenses.push(t);
+          }
         }
 
-        // Detect small leakage: under 5 units or equivalent
-        if (amount <= 5) {
-          smallExpenses.push(t);
+        // Today check
+        if (isCurrentCalendarMonth && typeof t.date === 'string' && t.date.startsWith(todayStr)) {
+          if (isCost) todaySpent += amount;
+          if (isEarn) todayEarned += amount;
         }
       }
     });
 
-    const netSavings = Math.max(0, totalEarn - totalExpense);
-    const savingsRate = totalEarn > 0 ? ((netSavings / totalEarn) * 100).toFixed(1) : 0;
+    const openingBalance = openingIncome - openingExpense;
+    const monthSavings = totalEarn - totalExpense; // Net savings generated this month
+    const availableBalance = openingBalance + totalEarn - totalExpense; // Total available funds
 
-    // Today's stats
-    const todaySpent = todayTx
-      .filter(t => t.type === 'cost')
-      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-    const todayEarned = todayTx
-      .filter(t => t.type === 'earn')
-      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    const savingsRate = totalEarn > 0 ? ((monthSavings / totalEarn) * 100).toFixed(1) : 0;
 
-    // Daily budget calculations
+    // Daily budget calculations (strictly based on daily limit & current day, independent of opening balance)
     const dailyLimit = customDailyLimit > 0 
       ? customDailyLimit 
       : (totalEarn > 0 ? (totalEarn * 0.7) / daysInMonth : 25);
@@ -96,7 +124,7 @@ const AdvisoryEngine = {
     const projectedMonthExpense = totalExpense + (dailyBurnRate * daysRemaining);
     const projectedMonthSavings = totalEarn - projectedMonthExpense;
 
-    // 50/30/20 breakdown
+    // 50/30/20 breakdown (of current month earnings)
     const needsPct = totalEarn > 0 ? (needsTotal / totalEarn) * 100 : 0;
     const wantsPct = totalEarn > 0 ? (wantsTotal / totalEarn) * 100 : 0;
     const actualSavingsPct = totalEarn > 0 ? ((totalEarn - (needsTotal + wantsTotal)) / totalEarn) * 100 : 0;
@@ -106,8 +134,58 @@ const AdvisoryEngine = {
       currencySymbol,
       totalEarn,
       totalExpense,
-      netSavings,
+      netSavings: monthSavings,
       savingsRate,
+      openingBalance,
+      availableBalance,
+      needsTotal,
+      wantsTotal,
+      needsPct,
+      wantsPct,
+      actualSavingsPct,
+      categoryTotals,
+      smallExpenses,
+      dailyBurnRate,
+      dailyLimit,
+      todaySpent,
+      todayRemaining,
+      projectedMonthSavings
+    });
+
+    return {
+      monthOverview: {
+        selectedYear: currentYear,
+        selectedMonth: currentMonth,
+        openingBalance,
+        totalEarn,
+        totalExpense,
+        monthSavings,
+        netSavings: monthSavings,
+        availableBalance,
+        savingsRate,
+        daysInMonth,
+        currentDay,
+        daysRemaining,
+        needsTotal,
+        wantsTotal,
+        needsPct: needsPct.toFixed(1),
+        wantsPct: wantsPct.toFixed(1),
+        actualSavingsPct: actualSavingsPct.toFixed(1),
+        isCurrentCalendarMonth
+      },
+      dailyOverview: {
+        dailyLimit,
+        todaySpent,
+        todayEarned,
+        todayRemaining,
+        dailyBurnRate,
+        projectedMonthExpense,
+        projectedMonthSavings
+      },
+      categoryBreakdown: categoryTotals,
+      suggestions
+    };
+  },
       needsTotal,
       wantsTotal,
       needsPct,
